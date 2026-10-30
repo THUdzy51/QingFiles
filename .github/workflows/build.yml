@@ -1,0 +1,38 @@
+name: Build and test
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  macos:
+    name: macOS build (${{ matrix.arch }})
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x86_64]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Run filesystem regression checks on the runner host
+        run: ./test.sh
+      - name: Build application
+        env:
+          QINGFILES_ARCH: ${{ matrix.arch }}
+        run: ./build.sh
+      - name: Verify and package
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          codesign --verify --deep --strict dist/QingFiles.app
+          plutil -lint dist/QingFiles.app/Contents/Info.plist
+          ditto -c -k --sequesterRsrc --keepParent dist/QingFiles.app "dist/QingFiles-${TARGET_ARCH}.zip"
+      - name: Upload build
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: QingFiles-${{ matrix.arch }}
+          path: dist/QingFiles-*.zip
+          if-no-files-found: error
