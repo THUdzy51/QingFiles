@@ -4,12 +4,12 @@ source_dir="$(cd "$(dirname "$0")" && pwd)"
 output_dir="${QINGFILES_OUTPUT_DIR:-$source_dir/dist}"
 architecture="${QINGFILES_ARCH:-$(uname -m)}"
 case "$architecture" in arm64|x86_64) ;; *) printf 'Unsupported architecture: %s\n' "$architecture" >&2; exit 1 ;; esac
-version="${QINGFILES_VERSION:-1.1.0}"
+version="${QINGFILES_VERSION:-1.2.0}"
 app_dir="$output_dir/QingFiles.app"
 build_dir="${QINGFILES_BUILD_DIR:-$source_dir/.build}"
 mkdir -p "$build_dir/ModuleCache" "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 export CLANG_MODULE_CACHE_PATH="$build_dir/ModuleCache"
-swiftc -swift-version 5 -parse-as-library -O -target "${architecture}-apple-macosx13.0" -module-cache-path "$build_dir/ModuleCache" -framework AppKit -framework Quartz "$source_dir/Theme.swift" "$source_dir/FileService.swift" "$source_dir/FilePane.swift" "$source_dir/App.swift" -o "$app_dir/Contents/MacOS/QingFiles"
+swiftc -swift-version 5 -parse-as-library -O -target "${architecture}-apple-macosx13.0" -module-cache-path "$build_dir/ModuleCache" -framework AppKit -framework Quartz -framework Security "$source_dir/RemoteService.swift" "$source_dir/RemoteWorkspace.swift" "$source_dir/Theme.swift" "$source_dir/FileService.swift" "$source_dir/FilePane.swift" "$source_dir/App.swift" -o "$app_dir/Contents/MacOS/QingFiles"
 swiftc -swift-version 5 -module-cache-path "$build_dir/ModuleCache" -framework AppKit "$source_dir/Tools/MakeIcon.swift" -o "$build_dir/make-icon"
 "$build_dir/make-icon" "$build_dir/icon-1024.png"
 mkdir -p "$build_dir/AppIcon.iconset"
@@ -29,8 +29,8 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>local.qingfiles.app</string>
 <key>CFBundleExecutable</key><string>QingFiles</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.1.0</string>
-<key>CFBundleVersion</key><string>2</string>
+<key>CFBundleShortVersionString</key><string>1.2.0</string>
+<key>CFBundleVersion</key><string>3</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
@@ -39,6 +39,8 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 </dict></plist>
 PLIST
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" "$app_dir/Contents/Info.plist"
+swiftc -swift-version 5 -O -target "${architecture}-apple-macosx13.0" -module-cache-path "$build_dir/ModuleCache" "$source_dir/Tools/Askpass.swift" -o "$app_dir/Contents/MacOS/QingFilesAskpass"
+codesign --force --sign - "$app_dir/Contents/MacOS/QingFilesAskpass"
 codesign --force --sign - "$app_dir"
 codesign --verify --deep --strict "$app_dir"
 printf 'Built: %s\n' "$app_dir"

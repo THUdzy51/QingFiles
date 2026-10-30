@@ -2,13 +2,17 @@
 
 ## Your first workspace
 
-1. Open QingFiles and click a pane to activate it. The active pane has a teal outline.
+1. Open QingFiles and click a pane to activate it. The active pane has a blue caption and keyboard focus.
 2. Click **Root /** in the sidebar to browse the filesystem's top level.
 3. Click **Hidden** to show dotfiles such as `.ssh` and `.config`.
 4. Open the source folder in one pane and the destination in its paired pane.
 5. Select items in the source, verify the destination, then choose **Copy Across** or **Move**.
 
 Each pane's search filters names only within its current folder. It does not recursively search child folders. Double-click folders to enter them and files to open them in their default application. Application and document bundles open through macOS instead of being treated as ordinary folders.
+
+## Remote servers
+
+Click **Connect** or press `⌘⇧K`. See [Remote connections](REMOTE_CONNECTIONS.md) for FTP, FTPS, SFTP, host fingerprints, saved passwords, transfers, and SSH Terminal.
 
 ## Keyboard shortcuts
 

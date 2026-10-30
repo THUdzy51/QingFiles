@@ -4,7 +4,7 @@ A free, native multi-pane file manager for macOS, built with Swift and AppKit.
 
 QingFiles puts local folders side by side so you can browse the filesystem, see hidden files, preview documents, and copy or move items between locations. The interface, built-in messages, and project documentation are in English. File names retain their original language; errors supplied by macOS may follow your system language.
 
-**Status:** early, usable local-file-manager release. This is an independent implementation, inspired by the general idea of multi-pane file management. It is not affiliated with QSpace.
+**Status:** early native file manager with a local workspace and an FTP/FTPS/SFTP connection workspace. This is an independent implementation, inspired by the general idea of multi-pane file management. It is not affiliated with QSpace.
 
 ![QingFiles two-pane workspace](docs/screenshot.png)
 
@@ -16,12 +16,13 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 - `arm64`: Apple silicon, including M-series Macs.
 - `x86_64`: Intel Macs. The build script supports this target; consult each release for which binaries were actually built and tested.
 - Releases are ad-hoc signed, not Apple Developer ID signed or notarized. Gatekeeper may require you to explicitly allow a downloaded build. See [Troubleshooting](docs/USER_GUIDE.md#troubleshooting).
-- No account, subscription, runtime package manager, telemetry, or file-upload service.
+- No QingFiles account, subscription, runtime package manager, or telemetry. Files are transferred only to servers you connect to.
 
 ## What it does
 
 | Feature | Behavior |
 |---|---|
+| Remote connections | FTP, explicit FTPS, SFTP uploads/downloads, saved profiles, optional Keychain passwords, and an SSH Terminal launcher. |
 | Two or four panes | Each pane has its own folder, navigation history, search, and selection. |
 | Direct path entry | Press `⌘L`, enter `/`, `~/Documents`, or another path, and press Return. |
 | Filesystem access | Sidebar shortcuts include Home, Root `/`, Volumes, Applications, and User Library. |
@@ -32,7 +33,15 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 | Favorites | Save frequently used folders; right-click a custom favorite to remove it. |
 | Persistent workspace | Remember pane locations, hidden-item visibility, and layout between launches. |
 
-The teal outline identifies the active pane. Sidebar navigation changes that pane. In four-pane mode, top-left pairs with top-right; bottom-left pairs with bottom-right. **Copy Across** and **Move** use the paired pane's current folder as their destination.
+The blue pane caption and native keyboard focus identify the active pane. Sidebar navigation changes that pane. In four-pane mode, top-left pairs with top-right; bottom-left pairs with bottom-right. **Copy Across** and **Move** in the main window use the paired pane's current folder as their destination.
+
+## Remote connections
+
+![Connection workspace](docs/screenshot-connections.png)
+
+Click **Connect** (or `⌘⇧K`) to open a local/remote workspace. Choose SFTP, FTPS, or FTP; enter a host, username, port, and remote path. For SSH/SFTP, verify the server fingerprint before trusting it. Select regular files and use Upload/Download. **SSH Terminal** opens a shell session in macOS Terminal.
+
+Read the [remote connection guide](docs/REMOTE_CONNECTIONS.md) for authentication, Keychain storage, host verification, cancellation, protocol limits, and partial-upload behavior. No real server credentials are included in this repository.
 
 ## File-operation behavior
 
@@ -67,12 +76,12 @@ cd QingFiles
 open dist/QingFiles.app
 ```
 
-No third-party libraries are required. The project uses direct `swiftc` compilation rather than an Xcode project or Swift package.
+No third-party application libraries are required. Remote features use macOS curl/OpenSSH; the bundled authentication helper is built from source. The project uses direct `swiftc` compilation rather than an Xcode project or Swift package.
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `QINGFILES_ARCH` | Host architecture | `arm64` or `x86_64` build target. |
-| `QINGFILES_VERSION` | `1.1.0` | Version written to the application bundle. |
+| `QINGFILES_VERSION` | `1.2.0` | Version written to the application bundle. |
 | `QINGFILES_BUILD_DIR` | `.build/` | Compiler cache and intermediate tools. |
 | `QINGFILES_OUTPUT_DIR` | `dist/` | Destination for `QingFiles.app`. |
 
@@ -86,7 +95,9 @@ Cross-compilation does not constitute runtime validation on the other architectu
 
 ## Tests and validation
 
-`./test.sh` runs filesystem checks in a unique temporary directory and cleans it up afterward. The suite currently has 36 checks covering listing, hidden items, copy/move, rename, conflict preservation, symbolic links, invalid names, overlapping selections, and partial success. It never trashes real user files; successful system Trash behavior still needs manual verification.
+The 1.2 development checks include 36 local filesystem checks and 14 remote unit checks. A separate loopback integration run passes 31 remote checks (including those 14 units), exercising FTP, FTPS, and SFTP. The native local and connection windows have also been rendered and inspected. See [Remote connections](docs/REMOTE_CONNECTIONS.md) to reproduce the network tests.
+
+`./test.sh` runs filesystem checks in a unique temporary directory and cleans it up afterward. The suite includes the original 36 checks covering listing, hidden items, copy/move, rename, conflict preservation, symbolic links, invalid names, overlapping selections, and partial success. It never trashes real user files; successful system Trash behavior still needs manual verification.
 
 The initial native UI was manually checked on Apple silicon with macOS 15.7.3: launch, two/four panes, path navigation, cross-pane copy, conflict reporting, and Quick Look. The English build was also checked in the actual two/four-pane UI, including Quick Look, and the filesystem suite was rerun. See each release's notes for additional validation. Large transfers, network-mounted filesystems, and every macOS permission combination have not been exhaustively tested.
 
@@ -94,12 +105,14 @@ GitHub Actions runs the test suite and builds both target architectures on macOS
 
 ## Current limitations and roadmap
 
-Not implemented: SFTP/cloud connections, archive browsing, tabs, a folder tree, batch rename, recursive disk search, inbound drag and drop, app-level undo, and cancelable transfers. Outbound dragging supports copying.
+Not implemented: cloud providers, archive browsing, tabs, a folder tree, batch rename, recursive disk search, inbound drag and drop, or app-level undo. Remote transfers support cancellation and regular files only; local file transfers still do not have cancellation. Remote upload preflight checks are not atomic against concurrent server writers. Outbound dragging supports copying.
 
 See [ROADMAP.md](ROADMAP.md) for proposed work. Roadmap entries are ideas, not delivery commitments.
 
 ## Maintain and improve
 
+- [Remote connections and SSH](docs/REMOTE_CONNECTIONS.md)
+- [Native design adaptation](docs/DESIGN.md)
 - [User guide and shortcuts](docs/USER_GUIDE.md)
 - [Architecture and code map](docs/ARCHITECTURE.md)
 - [Contributing and validation checklist](CONTRIBUTING.md)
