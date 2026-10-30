@@ -30,6 +30,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private var previewURLs: [URL] = []
     private var previewPanel: QLPreviewPanel?
     private var userFavorites: [String] = []
+    private var remoteWorkspace: RemoteWorkspace?
     private var isPreview: Bool { argument("--preview") != nil }
     private var fourPanes = false
     private let worker = DispatchQueue(label: "local.qingfiles.operations", qos: .userInitiated)
@@ -56,7 +57,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        if operationBusy {
+        if operationBusy || remoteWorkspace?.isBusy == true {
             showMessage("File operation in progress", "Wait for the current operation to finish before quitting.")
             return .terminateCancel
         }
@@ -115,7 +116,11 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         paneContainer.orientation = .vertical
         paneContainer.alignment = .leading
         paneContainer.distribution = .fillEqually
-        paneContainer.spacing = 12
+        paneContainer.spacing = 1
+        paneContainer.wantsLayer = true
+        paneContainer.layer?.cornerRadius = QingTheme.panelRadius
+        paneContainer.layer?.masksToBounds = true
+        paneContainer.layer?.backgroundColor = QingTheme.hairline.cgColor
         root.addSubview(paneContainer)
         let footer = makeFooter()
         root.addSubview(footer)
@@ -154,11 +159,13 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     }
 
     private func makeHeader() -> NSView {
-        let header = NSView()
+        let header: NSView
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency { header = NSView() }
+        else { let material = NSVisualEffectView(); material.material = .headerView; material.blendingMode = .behindWindow; header = material }
         let icon = NSImageView(image: QingTheme.symbol("rectangle.split.2x2.fill", size: 26) ?? NSImage())
         icon.contentTintColor = QingTheme.accent
         let title = QingTheme.label("QingFiles", size: 21, weight: .semibold)
-        let subtitle = QingTheme.label("QINGFILES", size: 9, weight: .semibold, color: .secondaryLabelColor)
+        let subtitle = QingTheme.label("LOCAL & REMOTE", size: 9, weight: .semibold, color: .secondaryLabelColor)
         let titleStack = NSStackView(views: [title, subtitle])
         titleStack.orientation = .vertical; titleStack.alignment = .leading; titleStack.spacing = 1
         let brand = NSStackView(views: [icon, titleStack]); brand.spacing = 10
@@ -175,10 +182,11 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         hiddenButton.setButtonType(.toggle)
         hiddenButton.state = !isPreview && UserDefaults.standard.bool(forKey: "showHidden") ? .on : .off
         hiddenButton.toolTip = "Show or hide hidden items · ⌘⇧."
-        let favorite = QingTheme.button("Favorite", symbol: "star", target: self, action: #selector(favoriteAction))
+        let connect = QingTheme.button("Connect", symbol: "network", target: self, action: #selector(connectionsAction))
+        connect.contentTintColor = QingTheme.accent
         let refresh = QingTheme.button("", symbol: "arrow.clockwise", target: self, action: #selector(refreshAction))
         refresh.toolTip = "Refresh the current folder · ⌘R"
-        let toolbar = NSStackView(views: [layoutSwitch, copyAcross, moveAcross, newFolder, preview, hiddenButton, favorite, refresh])
+        let toolbar = NSStackView(views: [layoutSwitch, copyAcross, moveAcross, newFolder, preview, hiddenButton, connect, refresh])
         toolbar.spacing = 8
         header.addSubview(toolbar)
         brand.translatesAutoresizingMaskIntoConstraints = false
@@ -255,7 +263,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         paneContainer.arrangedSubviews.forEach { paneContainer.removeArrangedSubview($0); $0.removeFromSuperview() }
         for rowIndex in 0..<(fourPanes ? 2 : 1) {
             let row = NSStackView(views: [panes[rowIndex * 2].view, panes[rowIndex * 2 + 1].view])
-            row.orientation = .horizontal; row.distribution = .fillEqually; row.alignment = .height; row.spacing = 12
+            row.orientation = .horizontal; row.distribution = .fillEqually; row.alignment = .height; row.spacing = 1
             paneContainer.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: paneContainer.widthAnchor).isActive = true
         }
@@ -280,6 +288,12 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         guard !panes.isEmpty, !operationBusy else { return }
         let count = activePane.selectedURLs.count
         statusLabel.stringValue = count > 0 ? "\(count) selected · Paired destination: \(otherPane.currentDirectory.lastPathComponent)" : "Local workspace · Click a pane to start browsing"
+    }
+
+    @objc private func connectionsAction(_ sender: Any?) {
+        if remoteWorkspace == nil { remoteWorkspace = RemoteWorkspace(localDirectory: activePane.currentDirectory) }
+        remoteWorkspace?.showWindow(nil)
+        remoteWorkspace?.window?.makeKeyAndOrderFront(nil)
     }
 
     @objc private func sidebarClick(_ sender: SidebarButton) { if let url = sender.location { activePane.navigate(to: url) } }
@@ -312,6 +326,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         guard !panes.isEmpty else { return false }
+        if let keyWindow = NSApp.keyWindow, keyWindow !== window { return false }
         if window.attachedSheet != nil { return false }
         let fileActions: [Selector] = [#selector(trashAction), #selector(renameAction), #selector(pasteMove), #selector(copyOtherAction), #selector(moveOtherAction), #selector(openAction), #selector(previewAction)]
         if let editor = window.firstResponder as? NSTextView, editor.isFieldEditor,
@@ -325,7 +340,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     }
 
     private func handle(_ action: String) {
-        guard window.attachedSheet == nil else { return }
+        guard window.attachedSheet == nil, NSApp.keyWindow === window else { return }
         let selected = activePane.selectedURLs
         switch action {
         case "open":
@@ -489,6 +504,8 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         item(view, "Show/Hide Hidden Items", #selector(toggleHidden), ".", [.command, .shift])
         item(view, "Refresh", #selector(refreshAction), "r")
         item(view, "Search Current Folder", #selector(focusSearchAction), "f")
+        let connections = submenu("Connections")
+        item(connections, "Remote Workspace…", #selector(connectionsAction), "k", [.command, .shift])
         let go = submenu("Go")
         item(go, "Edit Path", #selector(focusPathAction), "l")
         item(go, "Root", #selector(rootAction), "/", [.command, .shift])
@@ -504,7 +521,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         NSApp.mainMenu = menu
     }
     @objc private func aboutAction(_ sender: Any?) {
-        showMessage("QingFiles 1.1", "A free native file manager for macOS.\n\nTwo or four panes, path navigation, hidden files, and Quick Look.\n\nBuilt with Swift and AppKit. No third-party dependencies. File operations run locally.\nSource code is available under the MIT License.")
+        showMessage("QingFiles 1.2", "A free native file manager for macOS.\n\nTwo or four panes, path navigation, hidden files, and Quick Look.\n\nBuilt with Swift and AppKit. No third-party dependencies. File operations run locally.\nSource code is available under the MIT License.")
     }
 
     // Only used by the build's UI smoke test; it renders the real AppKit views.
@@ -527,6 +544,15 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
                     self.afterPanesLoad {
                         self.window.makeFirstResponder(nil)
                         self.saveSnapshot(output)
+                        if Bundle.main.object(forInfoDictionaryKey: "QingSnapshotConnections") as? Bool == true {
+                            self.connectionsAction(nil)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                                if let view = self.remoteWorkspace?.window?.contentView, let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                                    view.layoutSubtreeIfNeeded(); view.cacheDisplay(in: view.bounds, to: bitmap)
+                                    try? bitmap.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: (output as NSString).deletingPathExtension + "-connections.png"))
+                                }
+                            }
+                        }
                     }
                     let report = "UI smoke: double-pane and four-pane rendered; Quick Look controller=\(previewOK); frame=\(self.window.frame.size)\n"
                     try? report.write(toFile: (output as NSString).deletingPathExtension + "-check.txt", atomically: true, encoding: .utf8)

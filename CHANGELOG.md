@@ -4,6 +4,15 @@
 
 - Future maintenance and feature work will be recorded here.
 
+## 1.2.0 — 2026-10-30
+
+- Adopt shared Apple-inspired native design tokens: cool gray ground, white unified panes, hairline separators, restrained blue focus, and accessible header material.
+- Add a separate FTP/explicit-FTPS/SFTP workspace with directory navigation, uploads, downloads, cancellation, and per-batch completion feedback.
+- Add saved non-secret profiles, optional macOS Keychain passwords, explicit SSH fingerprint trust, and a Terminal-based SSH session launcher.
+- Keep credentials out of configuration files, command arguments, and terminal scripts; add an authentication-only bundled helper.
+- Add remote unit and disposable localhost integration tests.
+- Scope file-changing menu actions to the main window, preventing remote-window shortcuts from acting on hidden local selections.
+
 ## 1.1.0 — 2026-10-30
 
 - Translate all app-authored interface strings, menus, tooltips, alerts, metadata labels, and errors into English.

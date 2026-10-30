@@ -21,7 +21,8 @@ These are proposed directions, not release commitments. Track implementation in 
 ## Larger features requiring design
 
 - Archive browsing and extraction with traversal protection.
-- SFTP connections and credential storage in macOS Keychain.
+- Recursive remote transfers, resume support, jump hosts, and broader server compatibility.
+- Embedded terminal sessions beyond the current system Terminal launcher.
 - Cloud-provider integration with clear sync semantics.
 - Developer ID signing, notarization, and an update mechanism.
 

@@ -14,7 +14,8 @@ Use Swift 5 language mode as configured by the scripts, with a macOS 13 deployme
 
 ## Validation checklist
 
-- Run the filesystem suite when changing operations or shared models.
+- Run `./test.sh` when changing operations or shared models.
+- Run the disposable loopback integration suite from `docs/REMOTE_CONNECTIONS.md` when changing remote adapters or credentials. Never use a real server for regression fixtures.
 - Add regression checks for meaningful behavior changes, especially collision, symlink, and partial-failure behavior.
 - Test mutations only in a disposable fixture directory.
 - Check both two-pane and four-pane layouts, including the minimum window size.
