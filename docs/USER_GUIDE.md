@@ -14,6 +14,12 @@ Each pane's search filters names only within its current folder. It does not rec
 
 Click **Connect** or press `⌘⇧K`. See [Remote connections](REMOTE_CONNECTIONS.md) for FTP, FTPS, SFTP, host fingerprints, saved passwords, transfers, and SSH Terminal.
 
+## Storage capacity
+
+The storage bar below the file panes shows the active folder's disk name, used space, total capacity, and available space. It follows the active pane when browsing another disk and refreshes after file operations, manual refresh, returning to the app, and every 30 seconds while the main window is visible.
+
+Capacity comes from macOS volume information. Available space uses the filesystem's reported free capacity. System Settings may account for reclaimable storage differently. If capacity cannot be read, the bar displays an unavailable message.
+
 ## Keyboard shortcuts
 
 | Action | Shortcut |

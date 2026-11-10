@@ -16,8 +16,8 @@ Use a hostname or IP address in Host, without a URL scheme or `user@` prefix. En
 
 1. Enter Host, Port, Username, and the initial remote folder.
 2. Enter a password or key passphrase if needed. For key authentication, optionally enter a key file such as `~/.ssh/id_ed25519`. An available SSH agent can also authenticate.
-3. For a new server, click **Verify SSH Host…**. Compare the SHA-256 fingerprints with a trusted value from the server administrator. Click **Trust Host** only after comparing them. Scanning a key does not authenticate its owner.
-4. Click **Connect**. An unknown or changed host key is rejected; there is no automatic trust-on-first-use bypass.
+3. Click **Connect**. For a new server, the app displays the SSH host fingerprints. Compare the SHA-256 fingerprints with a trusted value from the server administrator, then click **Trust Host** to continue connecting. **Verify SSH Host…** also opens this confirmation separately.
+4. For a previously verified server, **Connect** proceeds directly to authentication and directory browsing. SSH checks the saved host keys during every connection. A changed key requires manual verification.
 5. Server/authentication fields are locked while connected; disconnect before editing them.
 6. Double-click remote folders to navigate. Use the remote path field, Up, Refresh, and Hidden items controls as needed.
 
@@ -47,6 +47,8 @@ For SFTP password authentication, a bundled SSH_ASKPASS helper receives the acti
 ## SSH terminal
 
 Choose an SFTP profile and click **SSH Terminal**. QingFiles creates a private `.command` file containing quoted SSH connection arguments and opens it with macOS Terminal. Terminal provides the interactive shell and its own password/passphrase prompt. Saved QingFiles passwords are not copied to the terminal script.
+
+On the first connection to a server, **SSH Terminal** displays the same fingerprint confirmation before opening Terminal.
 
 The same strict host-key file, port, username, and optional key file apply. This is a Terminal session launcher, not an embedded terminal emulator. Connection scripts are kept under `~/Library/Application Support/QingFiles/Terminal Sessions` and contain no passwords; remove old scripts there if desired.
 

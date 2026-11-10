@@ -166,12 +166,17 @@ final class RemoteWorkspace: NSWindowController, NSTableViewDataSource, NSTableV
         } catch { showError(error) }
     }
     @objc private func connectAction(_ sender: Any?) {
-        do { let backend = try makeService(); service = nil; allEntries = []; entries = []; table.reloadData(); load(try RemotePath.clean(path.stringValue), using: backend) }
+        do {
+            let backend = try makeService()
+            let directory = try RemotePath.clean(path.stringValue)
+            service = nil; allEntries = []; entries = []; table.reloadData()
+            withVerifiedHost(backend) { [weak self] in self?.load(directory, using: backend) }
+        }
         catch { showError(error) }
     }
     @objc private func disconnectAction(_ sender: Any?) { cancellation?.cancel(); service = nil; entries = []; allEntries = []; table.reloadData(); password.stringValue = ""; setMessage("Disconnected. Saved profiles and Keychain passwords are retained."); updateControls() }
     private func load(_ directory: String, using backend: RemoteService) {
-        let previous = remoteDirectory
+        let previous = service == nil ? directory : remoteDirectory
         run("Connecting / listing \(directory)…", work: { token in try backend.list(directory, cancellation: token) }) { [weak self] result in
             guard let self else { return }
             switch result {
@@ -240,28 +245,51 @@ final class RemoteWorkspace: NSWindowController, NSTableViewDataSource, NSTableV
         do {
             let backend = try makeService()
             guard backend.profile.kind == "SFTP" else { setMessage("Host-key verification applies to SSH/SFTP. FTPS uses system certificate verification."); return }
-            run("Reading SSH host fingerprints…", work: { _ in try backend.hostKeyScan() }) { [weak self] result in
-                guard let self, let window = self.window else { return }
-                switch result {
-                case .failure(let error): self.showError(error)
-                case .success(let scan):
-                    let alert = NSAlert(); alert.messageText = "Trust SSH host \(backend.profile.host)?"
-                    alert.informativeText = "Compare these SHA-256 fingerprints with your server administrator before trusting them. Key scanning alone does not authenticate the server.\n\n\(scan.fingerprints)\nChanged keys are never accepted automatically."
-                    alert.addButton(withTitle: "Trust Host"); alert.addButton(withTitle: "Cancel")
-                    alert.beginSheetModal(for: window) { response in
-                        if response == .alertFirstButtonReturn {
-                            do { try backend.trustHostKeys(scan.keys); self.setMessage("Host keys saved. Click Connect to authenticate.") }
-                            catch { self.showError(error) }
-                        }
+            requestHostTrust(for: backend) { [weak self] in self?.setMessage("Host keys saved. Click Connect to authenticate.") }
+        } catch { showError(error) }
+    }
+    private func withVerifiedHost(_ backend: RemoteService, completion: @escaping () -> Void) {
+        guard backend.profile.kind == "SFTP" else { completion(); return }
+        run("Checking saved SSH host keys…", work: { token in try backend.hasTrustedHost(cancellation: token) }) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(true): completion()
+            case .success(false): self.requestHostTrust(for: backend, completion: completion)
+            case .failure(let error): self.showError(error)
+            }
+        }
+    }
+    private func requestHostTrust(for backend: RemoteService, completion: @escaping () -> Void) {
+        run("Reading SSH host fingerprints…", work: { token in try backend.hostKeyScan(cancellation: token) }) { [weak self] result in
+            guard let self, let window = self.window else { return }
+            switch result {
+            case .failure(let error): self.showError(error)
+            case .success(let scan):
+                self.working = true; self.updateControls()
+                let alert = NSAlert(); alert.messageText = "Trust SSH host \(backend.profile.host)?"
+                alert.informativeText = "Compare these SHA-256 fingerprints with your server administrator before trusting them. Key scanning alone does not authenticate the server.\n\n\(scan.fingerprints)\nChanged keys are never accepted automatically."
+                alert.addButton(withTitle: "Trust Host"); alert.addButton(withTitle: "Cancel")
+                alert.beginSheetModal(for: window) { response in
+                    self.working = false; self.updateControls()
+                    if response == .alertFirstButtonReturn {
+                        do { try backend.trustHostKeys(scan.keys); completion() }
+                        catch { self.showError(error) }
+                    } else {
+                        self.setMessage("SSH host verification cancelled.")
                     }
                 }
             }
-        } catch { showError(error) }
+        }
     }
     @objc private func openTerminal(_ sender: Any?) {
         do {
             let backend = try makeService()
             guard backend.profile.kind == "SFTP" else { setMessage("Select SFTP to open an SSH terminal for this host."); return }
+            withVerifiedHost(backend) { [weak self] in self?.launchTerminal(using: backend) }
+        } catch { showError(error) }
+    }
+    private func launchTerminal(using backend: RemoteService) {
+        do {
             let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("QingFiles/Terminal Sessions")
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions:0o700])
             let script = directory.appendingPathComponent("SSH-\(UUID().uuidString).command")

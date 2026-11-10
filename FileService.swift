@@ -17,6 +17,15 @@ struct FileEntry: Sendable {
     }
 }
 
+struct VolumeStorage: Sendable {
+    let name: String
+    let total: Int64
+    let available: Int64
+
+    var used: Int64 { total - available }
+    var usedFraction: Double { Double(used) / Double(total) }
+}
+
 enum FileTransferMode: Sendable { case copy, move }
 
 struct FileOperationFailure: Sendable {
@@ -44,6 +53,23 @@ enum FileService {
         .isDirectoryKey, .isHiddenKey, .isSymbolicLinkKey,
         .fileSizeKey, .contentModificationDateKey
     ]
+
+    static func volumeStorage(for directory: URL) throws -> VolumeStorage {
+        try requireDirectory(directory)
+        var url = directory.resolvingSymlinksInPath()
+        url.removeAllCachedResourceValues()
+        let values = try url.resourceValues(forKeys: [
+            .volumeLocalizedNameKey, .volumeTotalCapacityKey, .volumeAvailableCapacityKey
+        ])
+        guard let total = values.volumeTotalCapacity, total > 0,
+              let available = values.volumeAvailableCapacity, available >= 0 else {
+            throw FileServiceError.invalid("Storage capacity is unavailable for this volume.")
+        }
+        return VolumeStorage(
+            name: values.volumeLocalizedName ?? "Disk",
+            total: Int64(total), available: min(Int64(available), Int64(total))
+        )
+    }
 
     static func list(_ directory: URL, showHidden: Bool) throws -> [FileEntry] {
         try requireDirectory(directory)

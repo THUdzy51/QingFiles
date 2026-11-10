@@ -4,6 +4,17 @@
 
 - Future maintenance and feature work will be recorded here.
 
+## 1.3.0 — 2026-11-06
+
+- Display the active folder's disk name, used capacity, total capacity, available capacity, and a usage bar in the main window.
+- Refresh capacity when switching panes or folders, refreshing, completing file operations, returning to the app, and every 30 seconds while the main window is visible.
+
+## 1.2.1 — 2026-11-05
+
+- Prompt for SSH host verification during the first Connect or SSH Terminal action, then continue the requested action after confirmation.
+- Recognize existing host trust entries for default ports, custom ports, and hashed hostnames.
+- Preserve the initial remote folder after a failed connection so retries use the entered path.
+
 ## 1.2.0 — 2026-10-30
 
 - Adopt shared Apple-inspired native design tokens: cool gray ground, white unified panes, hairline separators, restrained blue focus, and accessible header material.

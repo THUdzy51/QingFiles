@@ -244,14 +244,22 @@ final class RemoteService {
         try FileManager.default.moveItem(at: staging, to: target)
         return target
     }
-    func hostKeyScan() throws -> (keys: String, fingerprints: String) {
-        let result = try RemoteCommand.run("/usr/bin/ssh-keyscan", ["-T", "8", "-p", String(profile.port), profile.host], timeout: 12)
+    func hostKeyScan(cancellation: RemoteCancellation = RemoteCancellation()) throws -> (keys: String, fingerprints: String) {
+        let result = try RemoteCommand.run("/usr/bin/ssh-keyscan", ["-T", "8", "-p", String(profile.port), profile.host], timeout: 12, cancellation: cancellation)
         guard !result.output.isEmpty else { throw RemoteError.message("No SSH host keys were returned. Check the host and SSH port.") }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("qingfiles-key-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: url) }
         try result.output.write(to: url, atomically: true, encoding: .utf8)
-        let fingerprints = try RemoteCommand.run("/usr/bin/ssh-keygen", ["-lf", url.path, "-E", "sha256"]).output
+        let fingerprints = try RemoteCommand.run("/usr/bin/ssh-keygen", ["-lf", url.path, "-E", "sha256"], cancellation: cancellation).output
         return (result.output, fingerprints)
+    }
+    func hasTrustedHost(cancellation: RemoteCancellation = RemoteCancellation()) throws -> Bool {
+        guard FileManager.default.fileExists(atPath: knownHosts.path) else { return false }
+        let host = profile.port == 22 ? profile.host : "[\(profile.host)]:\(profile.port)"
+        let result = try RemoteCommand.run("/usr/bin/ssh-keygen", ["-F", host, "-f", knownHosts.path], cancellation: cancellation)
+        if result.status == 1 { return false }
+        try check(result)
+        return !result.output.isEmpty
     }
     func trustHostKeys(_ keys: String) throws {
         try FileManager.default.createDirectory(at: knownHosts.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions:0o700])

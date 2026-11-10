@@ -25,6 +25,12 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private var hiddenButton: NSButton!
     private var statusLabel = QingTheme.label("Ready", size: 11, color: .secondaryLabelColor)
     private var activityIndicator = NSProgressIndicator()
+    private let storageNameLabel = QingTheme.label("Storage", size: 11, weight: .semibold)
+    private let storageUsageLabel = QingTheme.label("Reading disk capacity…", size: 11, color: .secondaryLabelColor)
+    private let storageProgress = NSProgressIndicator()
+    private var storageDirectory: URL?
+    private var storageRequest = UUID()
+    private var storageRefreshTimer: Timer?
     private var operationBusy = false
     private var clipboardCutChangeCount: Int?
     private var previewURLs: [URL] = []
@@ -42,6 +48,10 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         buildMenu()
         if !isPreview { userFavorites = UserDefaults.standard.stringArray(forKey: "favorites") ?? [] }
         createWindow()
+        storageRefreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            guard let self, self.window.isVisible else { return }
+            self.refreshStorage()
+        }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         if isPreview { schedulePreview() }
@@ -53,7 +63,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        if !operationBusy { panes.forEach { $0.refresh() } }
+        if !operationBusy { refreshAll() }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -62,6 +72,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
             return .terminateCancel
         }
         saveState()
+        storageRefreshTimer?.invalidate()
         return .terminateNow
     }
 
@@ -124,11 +135,14 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         root.addSubview(paneContainer)
         let footer = makeFooter()
         root.addSubview(footer)
-        for view in [header, sidebarScroll, paneContainer, footer] { view.translatesAutoresizingMaskIntoConstraints = false }
+        let storage = makeStorageSummary()
+        root.addSubview(storage)
+        for view in [header, sidebarScroll, paneContainer, storage, footer] { view.translatesAutoresizingMaskIntoConstraints = false }
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: root.topAnchor), header.leadingAnchor.constraint(equalTo: root.leadingAnchor), header.trailingAnchor.constraint(equalTo: root.trailingAnchor), header.heightAnchor.constraint(equalToConstant: 62),
             sidebarScroll.topAnchor.constraint(equalTo: header.bottomAnchor), sidebarScroll.leadingAnchor.constraint(equalTo: root.leadingAnchor), sidebarScroll.widthAnchor.constraint(equalToConstant: 198), sidebarScroll.bottomAnchor.constraint(equalTo: footer.topAnchor),
-            paneContainer.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 2), paneContainer.leadingAnchor.constraint(equalTo: sidebarScroll.trailingAnchor, constant: 4), paneContainer.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16), paneContainer.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -8),
+            paneContainer.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 2), paneContainer.leadingAnchor.constraint(equalTo: sidebarScroll.trailingAnchor, constant: 4), paneContainer.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16), paneContainer.bottomAnchor.constraint(equalTo: storage.topAnchor, constant: -10),
+            storage.leadingAnchor.constraint(equalTo: paneContainer.leadingAnchor), storage.trailingAnchor.constraint(equalTo: paneContainer.trailingAnchor), storage.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -8), storage.heightAnchor.constraint(equalToConstant: 60),
             footer.leadingAnchor.constraint(equalTo: paneContainer.leadingAnchor), footer.trailingAnchor.constraint(equalTo: paneContainer.trailingAnchor), footer.bottomAnchor.constraint(equalTo: root.bottomAnchor), footer.heightAnchor.constraint(equalToConstant: 30)
         ])
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -204,6 +218,78 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         footer.addSubview(hint); hint.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: footer.leadingAnchor), stack.centerYAnchor.constraint(equalTo: footer.centerYAnchor), hint.trailingAnchor.constraint(equalTo: footer.trailingAnchor), hint.centerYAnchor.constraint(equalTo: footer.centerYAnchor), stack.trailingAnchor.constraint(lessThanOrEqualTo: hint.leadingAnchor, constant: -12)])
         return footer
+    }
+
+    private func makeStorageSummary() -> NSView {
+        let summary = NSView()
+        summary.wantsLayer = true
+        summary.layer?.backgroundColor = QingTheme.surface.cgColor
+        summary.layer?.cornerRadius = 12
+        storageNameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        storageUsageLabel.alignment = .right
+        storageUsageLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        storageProgress.style = .bar
+        storageProgress.controlSize = .small
+        storageProgress.isIndeterminate = false
+        storageProgress.minValue = 0
+        storageProgress.maxValue = 1
+        storageProgress.isHidden = true
+        storageProgress.setAccessibilityLabel("Disk storage used")
+        for view in [storageNameLabel, storageUsageLabel, storageProgress] {
+            summary.addSubview(view)
+            view.translatesAutoresizingMaskIntoConstraints = false
+        }
+        NSLayoutConstraint.activate([
+            storageNameLabel.leadingAnchor.constraint(equalTo: summary.leadingAnchor, constant: 16),
+            storageNameLabel.topAnchor.constraint(equalTo: summary.topAnchor, constant: 12),
+            storageUsageLabel.trailingAnchor.constraint(equalTo: summary.trailingAnchor, constant: -16),
+            storageUsageLabel.centerYAnchor.constraint(equalTo: storageNameLabel.centerYAnchor),
+            storageNameLabel.trailingAnchor.constraint(lessThanOrEqualTo: storageUsageLabel.leadingAnchor, constant: -16),
+            storageProgress.leadingAnchor.constraint(equalTo: storageNameLabel.leadingAnchor),
+            storageProgress.trailingAnchor.constraint(equalTo: storageUsageLabel.trailingAnchor),
+            storageProgress.topAnchor.constraint(equalTo: storageNameLabel.bottomAnchor, constant: 10),
+            storageProgress.heightAnchor.constraint(equalToConstant: 6)
+        ])
+        return summary
+    }
+
+    private func refreshStorage() {
+        guard !panes.isEmpty else { return }
+        let directory = activePane.currentDirectory
+        let request = UUID()
+        storageRequest = request
+        if storageDirectory != directory {
+            storageDirectory = directory
+            storageNameLabel.stringValue = "Storage"
+            storageUsageLabel.stringValue = "Reading disk capacity…"
+            storageUsageLabel.toolTip = nil
+            storageProgress.isHidden = true
+        }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let result = Result { try FileService.volumeStorage(for: directory) }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.storageRequest == request else { return }
+                switch result {
+                case .success(let storage):
+                    self.storageNameLabel.stringValue = "Storage · \(storage.name)"
+                    let used = ByteCountFormatter.string(fromByteCount: storage.used, countStyle: .decimal)
+                    let total = ByteCountFormatter.string(fromByteCount: storage.total, countStyle: .decimal)
+                    let available = ByteCountFormatter.string(fromByteCount: storage.available, countStyle: .decimal)
+                    self.storageUsageLabel.stringValue = "\(used) used of \(total) · \(available) available"
+                    self.storageUsageLabel.toolTip = self.storageUsageLabel.stringValue
+                    self.storageProgress.doubleValue = storage.usedFraction
+                    self.storageProgress.isHidden = false
+                    self.storageProgress.toolTip = self.storageUsageLabel.stringValue
+                    self.storageProgress.setAccessibilityValueDescription(self.storageUsageLabel.stringValue)
+                case .failure(let error):
+                    self.storageNameLabel.stringValue = "Storage"
+                    self.storageUsageLabel.stringValue = "Storage unavailable for this location"
+                    self.storageProgress.isHidden = true
+                    self.storageUsageLabel.toolTip = error.localizedDescription
+                }
+                self.storageNameLabel.toolTip = directory.path
+            }
+        }
     }
 
     private func rebuildSidebar() {
@@ -282,6 +368,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         guard !panes.isEmpty else { return }
         for button in sidebarButtons { button.selectedLocation = button.location?.standardizedFileURL == activePane.currentDirectory.standardizedFileURL }
         window?.representedURL = activePane.currentDirectory
+        refreshStorage()
     }
 
     private func updateStatus() {
@@ -302,7 +389,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         if !(sender is NSButton) { hiddenButton.state = hiddenButton.state == .on ? .off : .on }
         panes.forEach { $0.showsHidden = hiddenButton.state == .on }; saveState()
     }
-    @objc private func refreshAction(_ sender: Any?) { activePane.refresh() }
+    @objc private func refreshAction(_ sender: Any?) { activePane.refresh(); refreshStorage() }
     @objc private func focusPathAction(_ sender: Any?) { activePane.focusPath() }
     @objc private func focusSearchAction(_ sender: Any?) { activePane.focusSearch() }
     @objc private func rootAction(_ sender: Any?) { activePane.navigate(to: URL(fileURLWithPath: "/")) }
@@ -435,7 +522,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         }
     }
 
-    private func refreshAll() { panes.forEach { $0.refresh() } }
+    private func refreshAll() { panes.forEach { $0.refresh() }; refreshStorage() }
     private func askName(title: String, message: String, value: String, completion: @escaping (String) -> Void) {
         let alert = NSAlert(); alert.messageText = title; alert.informativeText = message
         let field = NSTextField(string: value); field.frame = NSRect(x: 0, y: 0, width: 380, height: 26)
@@ -521,7 +608,8 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         NSApp.mainMenu = menu
     }
     @objc private func aboutAction(_ sender: Any?) {
-        showMessage("QingFiles 1.2", "A free native file manager for macOS.\n\nTwo or four panes, path navigation, hidden files, and Quick Look.\n\nBuilt with Swift and AppKit. No third-party dependencies. File operations run locally.\nSource code is available under the MIT License.")
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.3.0"
+        showMessage("QingFiles \(version)", "A free native file manager for macOS.\n\nTwo or four panes, path navigation, hidden files, and Quick Look.\n\nBuilt with Swift and AppKit. No third-party dependencies. File operations run locally.\nSource code is available under the MIT License.")
     }
 
     // Only used by the build's UI smoke test; it renders the real AppKit views.
@@ -563,7 +651,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         }
     }
     private func afterPanesLoad(attempt: Int = 0, action: @escaping () -> Void) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             guard let self else { return }
             if self.panes.contains(where: { $0.isLoading }), attempt < 100 {
                 self.afterPanesLoad(attempt: attempt + 1, action: action)

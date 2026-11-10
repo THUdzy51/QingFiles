@@ -19,6 +19,15 @@ struct FileServiceTests {
         defer { try? fm.removeItem(at: root) }
         let source = try FileService.createDirectory(named: "source", in: root)
         let target = try FileService.createDirectory(named: "target", in: root)
+        let storage = try FileService.volumeStorage(for: source)
+        let filesystem = try fm.attributesOfFileSystem(forPath: source.path)
+        try expect(storage.total == (filesystem[.systemSize] as? NSNumber)?.int64Value, "storage total matches the containing filesystem")
+        try expect(storage.available >= 0 && storage.available <= storage.total && storage.used + storage.available == storage.total, "storage capacities remain consistent")
+        try expect((0...1).contains(storage.usedFraction) && !storage.name.isEmpty, "storage usage bar has a valid fraction and disk name")
+        do {
+            _ = try FileService.volumeStorage(for: URL(string: "sftp://example.invalid/folder")!)
+            throw TestError.failed("remote storage URL accepted")
+        } catch is FileServiceError { passed += 1; print("PASS: storage lookup rejects remote URLs") }
         let payload = source.appendingPathComponent("data.txt")
         try Data("original contents".utf8).write(to: payload)
         let hidden = source.appendingPathComponent(".settings")

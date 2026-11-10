@@ -31,6 +31,7 @@ struct RemoteServiceTests {
         let hostFile = FileManager.default.temporaryDirectory.appendingPathComponent("qingfiles-test-known-hosts-\(UUID().uuidString)")
         let backend = try RemoteService(profile: RemoteProfile(host: "localhost", username: "demo"), password: "never-in-script", knownHosts: hostFile)
         try expect(backend.terminalScript().contains("StrictHostKeyChecking=yes") && !backend.terminalScript().contains("never-in-script"), "terminal script verifies host and excludes password")
+        try expect(try !backend.hasTrustedHost(), "first connection detects missing host trust file")
         let token = RemoteCancellation(); token.cancel()
         try rejects("cancel before process spawn") { _ = try RemoteCommand.run("/usr/bin/true", [], cancellation: token) }
         let runningToken = RemoteCancellation()
@@ -49,10 +50,20 @@ struct RemoteServiceTests {
                 let keys = base.appendingPathComponent("known hosts with spaces")
                 let remote = try RemoteService(profile: profile, password: pass, knownHosts: keys, askpass: helper)
                 if scheme == "SFTP" {
+                    try expect(try !remote.hasTrustedHost(), "new SFTP host requires verification")
                     try rejects("untrusted SSH host rejected") { _ = try remote.list("/") }
                     let scan = try remote.hostKeyScan()
                     try expect(scan.fingerprints.contains("SHA256:"), "host key fingerprint scan")
                     try remote.trustHostKeys(scan.keys)
+                    try expect(try remote.hasTrustedHost(), "trusted host found on nondefault SSH port")
+                    let other = try RemoteService(profile: RemoteProfile(host: "localhost", port: port, username: "demo"), password: pass, knownHosts: keys, askpass: helper)
+                    try expect(try !other.hasTrustedHost(), "unrelated host still requires verification")
+                    let defaultKeys = base.appendingPathComponent("default-port-known-hosts")
+                    try scan.keys.replacingOccurrences(of: "[127.0.0.1]:\(port)", with: "127.0.0.1").write(to: defaultKeys, atomically: true, encoding: .utf8)
+                    let defaultPort = try RemoteService(profile: RemoteProfile(host: "127.0.0.1", username: "demo"), password: pass, knownHosts: defaultKeys, askpass: helper)
+                    try expect(try defaultPort.hasTrustedHost(), "trusted host found on default SSH port")
+                    let hash = try RemoteCommand.run("/usr/bin/ssh-keygen", ["-H", "-f", keys.path])
+                    try expect(hash.status == 0 && (try remote.hasTrustedHost()), "hashed known-host entry remains recognized")
                 }
                 let listing = try remote.list("/")
                 try expect(listing.contains { $0.name == "server sample.txt" }, "\(scheme) authenticated directory listing")

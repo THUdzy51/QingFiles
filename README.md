@@ -24,6 +24,7 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 |---|---|
 | Remote connections | FTP, explicit FTPS, SFTP uploads/downloads, saved profiles, optional Keychain passwords, and an SSH Terminal launcher. |
 | Two or four panes | Each pane has its own folder, navigation history, search, and selection. |
+| Storage capacity | The main window shows the active folder's disk name, used space, total capacity, available space, and a usage bar. |
 | Direct path entry | Press `⌘L`, enter `/`, `~/Documents`, or another path, and press Return. |
 | Filesystem access | Sidebar shortcuts include Home, Root `/`, Volumes, Applications, and User Library. |
 | Hidden items | Toggle dotfiles and hidden-flag items with `⌘⇧.`. |

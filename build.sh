@@ -4,7 +4,7 @@ source_dir="$(cd "$(dirname "$0")" && pwd)"
 output_dir="${QINGFILES_OUTPUT_DIR:-$source_dir/dist}"
 architecture="${QINGFILES_ARCH:-$(uname -m)}"
 case "$architecture" in arm64|x86_64) ;; *) printf 'Unsupported architecture: %s\n' "$architecture" >&2; exit 1 ;; esac
-version="${QINGFILES_VERSION:-1.2.0}"
+version="${QINGFILES_VERSION:-1.3.0}"
 app_dir="$output_dir/QingFiles.app"
 build_dir="${QINGFILES_BUILD_DIR:-$source_dir/.build}"
 mkdir -p "$build_dir/ModuleCache" "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
@@ -29,8 +29,8 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>local.qingfiles.app</string>
 <key>CFBundleExecutable</key><string>QingFiles</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.2.0</string>
-<key>CFBundleVersion</key><string>3</string>
+<key>CFBundleShortVersionString</key><string>1.3.0</string>
+<key>CFBundleVersion</key><string>5</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
@@ -39,6 +39,7 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 </dict></plist>
 PLIST
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" "$app_dir/Contents/Info.plist"
+cp "$source_dir/PrivacyInfo.xcprivacy" "$app_dir/Contents/Resources/PrivacyInfo.xcprivacy"
 swiftc -swift-version 5 -O -target "${architecture}-apple-macosx13.0" -module-cache-path "$build_dir/ModuleCache" "$source_dir/Tools/Askpass.swift" -o "$app_dir/Contents/MacOS/QingFilesAskpass"
 codesign --force --sign - "$app_dir/Contents/MacOS/QingFilesAskpass"
 codesign --force --sign - "$app_dir"
