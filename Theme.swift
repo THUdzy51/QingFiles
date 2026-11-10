@@ -5,8 +5,11 @@ final class TopAlignedStackView: NSStackView {
 }
 
 enum QingTheme {
-    static let accent = NSColor(srgbRed: 0.12, green: 0.51, blue: 0.46, alpha: 1)
-    static let background = NSColor(srgbRed: 0.945, green: 0.956, blue: 0.957, alpha: 1)
+    static let accent = NSColor(srgbRed: 0, green: 113.0/255, blue: 227.0/255, alpha: 1)
+    static let background = NSColor(srgbRed: 245.0/255, green: 245.0/255, blue: 247.0/255, alpha: 1)
+    static let surface = NSColor.white
+    static let panelRadius: CGFloat = 22
+    static var hairline: NSColor { NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast ? .separatorColor : NSColor.black.withAlphaComponent(0.07) }
     static let secondary = NSColor.secondaryLabelColor
     static func symbol(_ name: String, size: CGFloat = 15) -> NSImage? {
         NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(.init(pointSize: size, weight: .regular))
@@ -45,7 +48,7 @@ final class SidebarButton: NSButton {
     override func draw(_ dirtyRect: NSRect) {
         if selectedLocation {
             QingTheme.accent.withAlphaComponent(0.10).setFill()
-            NSBezierPath(roundedRect: bounds.insetBy(dx: 0, dy: 1), xRadius: 7, yRadius: 7).fill()
+            NSBezierPath(roundedRect: bounds.insetBy(dx: 0, dy: 1), xRadius: 6, yRadius: 6).fill()
         }
         super.draw(dirtyRect)
     }

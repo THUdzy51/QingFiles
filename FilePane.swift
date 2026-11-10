@@ -89,7 +89,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         }
     }
 
-    private let accent = NSColor(red: 0.12, green: 0.53, blue: 0.48, alpha: 1)
+    private let accent = QingTheme.accent
     private let table = FileListTable()
     private let folderLabel = NSTextField(labelWithString: "")
     private let paneLabel = NSTextField(labelWithString: "")
@@ -127,7 +127,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     override func loadView() {
         let root = PaneContainerView()
         root.wantsLayer = true
-        root.layer?.cornerRadius = 12
+        root.layer?.cornerRadius = 0
         root.layer?.masksToBounds = true
         root.onActivate = { [weak self] in self?.activate() }
         view = root
@@ -454,7 +454,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     private func updateActiveAppearance() {
         view.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
         view.layer?.borderColor = (isActive ? accent.withAlphaComponent(0.7) : NSColor.separatorColor.withAlphaComponent(0.45)).cgColor
-        view.layer?.borderWidth = isActive ? 1.5 : 1
+        view.layer?.borderWidth = 0
         paneLabel.textColor = isActive ? accent : .secondaryLabelColor
     }
 

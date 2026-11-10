@@ -9,6 +9,9 @@ QingFiles is a small AppKit application compiled directly with `swiftc`. There a
 | `App.swift` | Entry point, menus, main window, sidebar, pane pairing, clipboard intent, operation queue, alerts, persistence, Quick Look controller. |
 | `FilePane.swift` | Independent directory browser: table, navigation history, path/search fields, selection, sorting, context menu and keyboard routing. |
 | `FileService.swift` | Local filesystem metadata and mutations, name validation, collision prevention, selection validation, and per-item results. |
+| `RemoteService.swift` | Validated profiles/paths, process runner/cancellation, FTP MLSD and SFTP listing parsers, curl/OpenSSH adapters, host trust, and Keychain credentials. |
+| `RemoteWorkspace.swift` | Grouped connection form and separate local/remote browsing, transfers, profile saving, fingerprint consent, and SSH Terminal launcher. |
+| `Tools/Askpass.swift` | Authentication-only SSH_ASKPASS helper; never handles host trust. |
 | `Theme.swift` | Shared colors, labels/buttons, favorite row appearance, top-aligned sidebar stack. |
 | `Tools/MakeIcon.swift` | Draw the original application icon with AppKit. |
 | `Tools/PackIcon.swift` | Package icon PNG representations into ICNS. |
@@ -43,7 +46,7 @@ The window delegate participates in the preview panel controller lifecycle. Data
 
 This is an unsandboxed, ad-hoc-signed desktop application using the current user's permissions. It does not request administrator access. macOS privacy permissions and read-only system locations still apply.
 
-No application network client or analytics is included. Opening a file invokes its system default application, which has its own behavior. Symlink and collision checks reduce common mistakes; they are not a transactional filesystem or a defense against every concurrent modification race.
+Remote connections are explicitly initiated in a separate workspace using macOS curl/OpenSSH; no analytics is included. See REMOTE_CONNECTIONS.md for password and host-key handling. Opening a file invokes its system default application, which has its own behavior. Symlink and collision checks reduce common mistakes; they are not a transactional filesystem or a defense against every concurrent modification race.
 
 ## UI verification fixtures
 

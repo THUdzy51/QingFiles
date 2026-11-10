@@ -1,0 +1,4 @@
+# Optional loopback integration servers only; not application dependencies.
+paramiko==5.1.0
+pyftpdlib==2.2.0
+pyOpenSSL==26.4.0

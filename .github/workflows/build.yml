@@ -23,6 +23,13 @@ jobs:
         env:
           QINGFILES_ARCH: ${{ matrix.arch }}
         run: ./build.sh
+      - name: Run disposable FTP, FTPS, and SFTP integration checks
+        if: matrix.arch == 'arm64'
+        run: |
+          python3 -m venv .build/integration-env
+          .build/integration-env/bin/pip install -r Tests/requirements.txt
+          swiftc Tools/Askpass.swift -o .build/askpass-test
+          .build/integration-env/bin/python Tests/remote_servers.py .build/remote-service-tests .build/askpass-test
       - name: Verify and package
         env:
           TARGET_ARCH: ${{ matrix.arch }}
