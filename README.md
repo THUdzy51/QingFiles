@@ -28,9 +28,10 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 | Direct path entry | Press `⌘L`, enter `/`, `~/Documents`, or another path, and press Return. |
 | Filesystem access | Sidebar shortcuts include Home, Root `/`, Volumes, Applications, and User Library. |
 | Hidden items | Toggle dotfiles and hidden-flag items with `⌘⇧.`. |
-| Search and sorting | Filter names in the current folder; sort by name, modified date, or size. Folders stay first. |
+| Search and sorting | Click the search button or press `⌘F` to filter names in the current folder; sort by name, modified date, or size. Folders stay first. |
 | Quick Look | Select a file and press Space for the system preview. |
 | File operations | Copy, cut, paste, copy/move across panes, create folders, rename, and move to Trash. |
+| New documents | Right-click New to create a folder or blank Word, Excel, PowerPoint, PDF, text, or Markdown file and name it inline. |
 | Favorites | Save frequently used folders; right-click a custom favorite to remove it. |
 | Persistent workspace | Remember pane locations, hidden-item visibility, and layout between launches. |
 
@@ -96,7 +97,11 @@ Cross-compilation does not constitute runtime validation on the other architectu
 
 ## Tests and validation
 
+On a Mac with a logged-in desktop session, `./test-ui.sh` runs 16 AppKit header checks covering compact controls, narrow/wide layouts, search focus/visibility, and navigation resets.
+
 The 1.2 development checks include 36 local filesystem checks and 14 remote unit checks. A separate loopback integration run passes 31 remote checks (including those 14 units), exercising FTP, FTPS, and SFTP. The native local and connection windows have also been rendered and inspected. See [Remote connections](docs/REMOTE_CONNECTIONS.md) to reproduce the network tests.
+
+The current suite has 56 local checks and 15 remote unit checks. New-document checks cover all seven types, unique naming, preserved resource bytes, dangling symlinks, concurrent creation, and missing resources.
 
 `./test.sh` runs filesystem checks in a unique temporary directory and cleans it up afterward. The suite includes the original 36 checks covering listing, hidden items, copy/move, rename, conflict preservation, symbolic links, invalid names, overlapping selections, and partial success. It never trashes real user files; successful system Trash behavior still needs manual verification.
 
