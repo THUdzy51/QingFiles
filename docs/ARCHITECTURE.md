@@ -51,3 +51,9 @@ Remote connections are explicitly initiated in a separate workspace using macOS 
 ## UI verification fixtures
 
 The app accepts `--preview PATH --snapshot OUTPUT.png` for developer smoke checks. The fixture must contain `Workspace`, `Library`, `Workspace/Climate Research`, and `Library/Paper Notes`, including `Workspace/README.md`. A separately packaged QA copy can set `QingPreviewPath` and `QingSnapshotPath` in its Info.plist for Launch Services testing. Preview mode does not save normal user preferences. These keys must not be added to release bundles.
+
+## Blank documents and inline naming
+
+`FileService.createBlank` uses exclusive file writes (or directory creation), retrying numbered names only on an existing-item error. Original blank Office and PDF documents live in `Resources/BlankDocuments` and are copied into the application bundle by `build.sh`. `Tools/GenerateBlankDocuments.py` can regenerate these resources with development-only python-docx, openpyxl, and python-pptx dependencies. Normal builds use the checked-in resources directly.
+
+The controller captures the originating pane and directory before resigning a field editor and queues creation on its operation worker. The pane clears its filter, waits for its current listing generation, selects the returned URL, and starts inline editing only while still active in the key window. Inline naming preserves the file extension and delegates collision checks to `FileService.rename`. Refreshes of an editing pane are deferred until editing finishes.

@@ -20,6 +20,14 @@ The storage bar below the file panes shows the active folder's disk name, used s
 
 Capacity comes from macOS volume information. Available space uses the filesystem's reported free capacity. System Settings may account for reclaimable storage differently. If capacity cannot be read, the bar displays an unavailable message.
 
+## Create a blank document
+
+Right-click in a local pane and choose **New**, then Folder, Word Document (`.docx`), Excel Workbook (`.xlsx`), PowerPoint Presentation (`.pptx`), PDF Document (`.pdf`), Text Document (`.txt`), or Markdown Document (`.md`). The item is created in that pane's displayed folder, including when you right-click an existing item. Existing names receive a numbered suffix such as `New Word Document (2).docx`.
+
+The new item is selected and scrolled into view. Its name enters inline editing when the originating pane is still active. Type a name and press Return, or click elsewhere to commit. File extensions are preserved automatically. Escape keeps the created item with its original default name. Invalid or conflicting names show an error and let you retry. The app does not open the document automatically. An active name filter in the originating pane is cleared after creation so the item is visible.
+
+Word starts with an empty paragraph, Excel with one empty worksheet, PowerPoint with one blank slide, and PDF with one blank A4 page. Text and Markdown files have no content. Office and PDF resources are bundled with the app, so creation works offline and does not require Office. Editing or viewing them requires a compatible application. Custom templates and creation on FTP/SFTP servers are outside this feature's scope.
+
 ## Keyboard shortcuts
 
 | Action | Shortcut |
