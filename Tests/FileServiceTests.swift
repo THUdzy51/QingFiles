@@ -28,6 +28,35 @@ struct FileServiceTests {
             _ = try FileService.volumeStorage(for: URL(string: "sftp://example.invalid/folder")!)
             throw TestError.failed("remote storage URL accepted")
         } catch is FileServiceError { passed += 1; print("PASS: storage lookup rejects remote URLs") }
+        let resources = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources/BlankDocuments")
+        let newItems = try FileService.createDirectory(named: "new-items", in: root)
+        for kind in NewItemKind.allCases {
+            let first = try FileService.createBlank(kind, in: newItems, resources: resources)
+            let second = try FileService.createBlank(kind, in: newItems, resources: resources)
+            try expect(first.lastPathComponent == kind.defaultName && first != second, "\(kind.rawValue) creation allocates unique names")
+            if kind != .folder {
+                let expected = [.txt, .md].contains(kind) ? Data() : try Data(contentsOf: resources.appendingPathComponent("Blank.\(kind.rawValue)"))
+                try expect(try Data(contentsOf: first) == expected, "\(kind.rawValue) creation preserves blank document bytes")
+            }
+        }
+        let occupied = try FileService.createDirectory(named: "occupied", in: root)
+        let blocked = occupied.appendingPathComponent(NewItemKind.txt.defaultName)
+        try fm.createSymbolicLink(atPath: blocked.path, withDestinationPath: occupied.appendingPathComponent("missing").path)
+        let afterLink = try FileService.createBlank(.txt, in: occupied, resources: resources)
+        try expect(afterLink != blocked && (try fm.destinationOfSymbolicLink(atPath: blocked.path)).hasSuffix("missing"), "new documents preserve dangling symlinks")
+        let failures = NSMutableArray()
+        let lock = NSLock()
+        DispatchQueue.concurrentPerform(iterations: 12) { _ in
+            do { _ = try FileService.createBlank(.txt, in: occupied, resources: resources) }
+            catch { lock.lock(); failures.add(error); lock.unlock() }
+        }
+        try expect(failures.count == 0 && (try fm.contentsOfDirectory(atPath: occupied.path)).count == 14, "concurrent creation retains every new file and existing symlink")
+        do {
+            _ = try FileService.createBlank(.docx, in: newItems, resources: root.appendingPathComponent("missing-resources"))
+            throw TestError.failed("missing template accepted")
+        } catch is TestError { throw TestError.failed("missing template accepted") }
+        catch { try expect((try fm.contentsOfDirectory(atPath: newItems.path)).count == 14, "missing template leaves no empty placeholder") }
+
         let payload = source.appendingPathComponent("data.txt")
         try Data("original contents".utf8).write(to: payload)
         let hidden = source.appendingPathComponent(".settings")

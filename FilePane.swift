@@ -104,6 +104,10 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     private var visibleEntries: [FileEntry] = []
     private var backHistory: [URL] = []
     private var forwardHistory: [URL] = []
+    private var pendingNewURL: URL?
+    private var inlineURL: URL?
+    private var inlineExtension = ""
+    private weak var inlineField: NSTextField?
     private var requestGeneration = 0
     private var loadError: String?
     private var loading = false
@@ -312,6 +316,8 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     }
 
     private func changeDirectory(_ directory: URL) {
+        guard view.window?.makeFirstResponder(nil) != false else { return }
+        pendingNewURL = nil
         currentDirectory = directory
         _ = view
         searchField.stringValue = ""
@@ -358,13 +364,13 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         searchField.selectText(nil)
     }
 
-    func refresh() {
-        guard isViewLoaded else { return }
+    func refresh(selecting preferredSelection: Set<String>? = nil) {
+        guard isViewLoaded, inlineURL == nil else { return }
         requestGeneration += 1
         let generation = requestGeneration
         let directory = currentDirectory
         let hidden = showsHidden
-        let selection = Set(selectedURLs.map(\.path))
+        let selection = preferredSelection ?? Set(selectedURLs.map(\.path))
         loading = true
         loadError = nil
         spinner.startAnimation(nil)
@@ -385,8 +391,36 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
                 }
                 self.applyFilter(restoring: selection)
                 self.onSelectionChanged?(self)
+                if let url = self.pendingNewURL {
+                    self.pendingNewURL = nil
+                    self.selectNewItem(url)
+                }
             }
         }
+    }
+
+    func revealCreatedItem(_ url: URL) {
+        guard url.deletingLastPathComponent().standardizedFileURL.path == currentDirectory.standardizedFileURL.path else { return }
+        searchField.stringValue = ""
+        pendingNewURL = url
+        refresh()
+    }
+
+    private func selectNewItem(_ url: URL) {
+        guard let row = visibleEntries.firstIndex(where: { $0.url.standardizedFileURL.path == url.standardizedFileURL.path }) else { return }
+        table.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        table.scrollRowToVisible(row)
+        guard isActive, view.window?.isKeyWindow == true,
+              let cell = table.view(atColumn: 0, row: row, makeIfNecessary: true) as? NSTableCellView,
+              let field = cell.textField else { return }
+        inlineURL = url
+        inlineExtension = visibleEntries[row].isDirectory ? "" : url.pathExtension
+        inlineField = field
+        field.isEditable = true
+        field.isSelectable = true
+        field.delegate = self
+        field.stringValue = inlineExtension.isEmpty ? url.lastPathComponent : url.deletingPathExtension().lastPathComponent
+        field.selectText(nil)
     }
 
     func performAction(_ action: String) {
@@ -488,7 +522,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
             ("Open", "open"), ("Quick Look", "preview"), ("", ""),
             ("Copy", "copy"), ("Cut", "cut"), ("Paste Here", "paste"),
             ("Copy Across", "copyToOther"), ("Move Across", "moveToOther"), ("", ""),
-            ("New Folder…", "newFolder"), ("Rename…", "rename"), ("Move to Trash…", "trash"), ("", ""),
+            ("New", "new"), ("Rename…", "rename"), ("Move to Trash…", "trash"), ("", ""),
             ("Copy Full Path", "copyPath"), ("Favorite Current Folder", "favorite"), ("Open Folder in Terminal", "terminal")
         ]
         for (title, action) in definitions {
@@ -496,6 +530,16 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
             let item = NSMenuItem(title: title, action: #selector(contextAction(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = action
+            if action == "new" {
+                let submenu = NSMenu(title: "New")
+                for kind in NewItemKind.allCases {
+                    let child = NSMenuItem(title: kind.title, action: #selector(contextAction(_:)), keyEquivalent: "")
+                    child.target = self
+                    child.representedObject = "newItem:" + kind.rawValue
+                    submenu.addItem(child)
+                }
+                item.submenu = submenu
+            }
             menu.addItem(item)
         }
         return menu
@@ -521,6 +565,62 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         else { target = currentDirectory.appendingPathComponent(expanded, isDirectory: true) }
         navigate(to: target)
         view.window?.makeFirstResponder(table)
+    }
+
+    func control(_ control: NSControl, textShouldEndEditing fieldEditor: NSText) -> Bool {
+        guard let field = inlineField, control === field, let url = inlineURL else { return true }
+        let base = fieldEditor.string
+        // Validate the editable stem before appending its protected extension.
+        guard !base.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              base != ".", base != "..", !base.contains("/"), !base.contains("\0") else {
+            showNamingError("Enter a nonempty name other than . or .., without a slash or null character.")
+            return false
+        }
+        let name = inlineExtension.isEmpty ? base : base + "." + inlineExtension
+        do {
+            inlineURL = try FileService.rename(url, to: name)
+            return true
+        } catch {
+            showNamingError(error.localizedDescription)
+            return false
+        }
+    }
+
+    private func showNamingError(_ message: String) {
+        guard let window = view.window, window.attachedSheet == nil else { return }
+        let alert = NSAlert()
+        alert.messageText = "Cannot Rename Item"
+        alert.informativeText = message
+        alert.beginSheetModal(for: window) { [weak self] _ in
+            guard let field = self?.inlineField else { return }
+            field.window?.makeFirstResponder(field)
+        }
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        guard control === inlineField else { return false }
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)), let url = inlineURL {
+            textView.string = inlineExtension.isEmpty ? url.lastPathComponent : url.deletingPathExtension().lastPathComponent
+            view.window?.makeFirstResponder(table)
+            return true
+        }
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            view.window?.makeFirstResponder(table)
+            return true
+        }
+        return false
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard let field = obj.object as? NSTextField, field === inlineField, let url = inlineURL else { return }
+        field.stringValue = url.lastPathComponent
+        field.isEditable = false
+        field.isSelectable = false
+        field.delegate = nil
+        inlineField = nil
+        inlineURL = nil
+        inlineExtension = ""
+        refresh(selecting: [url.path])
     }
 
     func controlTextDidBeginEditing(_ obj: Notification) { activate() }

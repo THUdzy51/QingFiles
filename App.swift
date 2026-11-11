@@ -428,6 +428,10 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
 
     private func handle(_ action: String) {
         guard window.attachedSheet == nil, NSApp.keyWindow === window else { return }
+        if action.hasPrefix("newItem:"), let kind = NewItemKind(rawValue: String(action.dropFirst(8))) {
+            createBlankItem(kind)
+            return
+        }
         let selected = activePane.selectedURLs
         switch action {
         case "open":
@@ -481,6 +485,31 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
             guard let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { return }
             NSWorkspace.shared.open([activePane.currentDirectory], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration())
         default: break
+        }
+    }
+
+    private func createBlankItem(_ kind: NewItemKind) {
+        guard !operationBusy else { NSSound.beep(); return }
+        let pane = activePane
+        let parent = pane.currentDirectory
+        guard window.makeFirstResponder(nil) else { return }
+        activate(pane)
+        guard let resources = Bundle.main.resourceURL?.appendingPathComponent("BlankDocuments") else { return }
+        operationBusy = true
+        statusLabel.stringValue = "Creating \(kind.title)…"
+        activityIndicator.startAnimation(nil)
+        worker.async { [weak self, weak pane] in
+            let result = Result { try FileService.createBlank(kind, in: parent, resources: resources) }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.operationBusy = false
+                self.activityIndicator.stopAnimation(nil)
+                self.refreshStorage()
+                switch result {
+                case .success(let url): pane?.revealCreatedItem(url)
+                case .failure(let error): self.showMessage("Cannot Create Item", error.localizedDescription)
+                }
+            }
         }
     }
 
