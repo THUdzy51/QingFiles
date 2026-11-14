@@ -9,10 +9,96 @@ private final class PaneContainerView: NSView {
     }
 }
 
-/// Native breadcrumb tracking with an explicit text-editing entry on unused space.
+private final class BreadcrumbBar: NSView {
+    static let editingSpace: CGFloat = 28
+    var onEdit: (() -> Void)?
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.labelColor.withAlphaComponent(0.045).setFill()
+        NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6).fill()
+    }
+
+    override func resetCursorRects() {
+        let editingArea = NSRect(x: bounds.maxX - Self.editingSpace, y: 0,
+                                 width: Self.editingSpace, height: bounds.height)
+        addCursorRect(editingArea, cursor: .iBeam)
+    }
+
+    override func mouseDown(with event: NSEvent) { onEdit?() }
+}
+
 private final class BreadcrumbPathControl: NSPathControl {
     var onEdit: (() -> Void)?
     var onOverflow: (() -> Void)?
+    private var hoverTracking: NSTrackingArea?
+    private var pointerInside = false
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTracking { removeTrackingArea(hoverTracking) }
+        let tracking = NSTrackingArea(rect: .zero, options: [
+            .inVisibleRect, .mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow
+        ], owner: self, userInfo: nil)
+        addTrackingArea(tracking)
+        hoverTracking = tracking
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        pointerInside = true
+        needsDisplay = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        pointerInside = false
+        needsDisplay = true
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        pointerInside = true
+        needsDisplay = true
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        guard let pathCell = cell as? NSPathCell,
+              let last = pathCell.pathComponentCells.last else { return }
+        let lastFrame = pathCell.rect(of: last, withFrame: bounds, in: self)
+        if lastFrame.maxX < bounds.maxX {
+            let emptySpace = NSRect(x: lastFrame.maxX, y: bounds.minY,
+                                    width: bounds.maxX - lastFrame.maxX, height: bounds.height)
+            addCursorRect(emptySpace, cursor: .iBeam)
+        }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if pointerInside, let window, window.isKeyWindow, let pathCell = cell as? NSPathCell {
+            let point = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+            if bounds.contains(point),
+               let component = pathCell.pathComponentCell(at: point, withFrame: bounds, in: self) {
+                let frame = pathCell.rect(of: component, withFrame: bounds, in: self).insetBy(dx: 0, dy: 2)
+                NSColor.labelColor.withAlphaComponent(0.10).setFill()
+                NSBezierPath(roundedRect: frame, xRadius: 4, yRadius: 4).fill()
+            }
+        }
+        super.draw(dirtyRect)
+    }
+
+    /// Give the path cell a square image while keeping the original symbol's proportions inside it.
+    static func icon(_ name: String) -> NSImage? {
+        guard let symbol = QingTheme.symbol(name, size: 14) else { return nil }
+        let image = NSImage(size: NSSize(width: 24, height: 24), flipped: false) { bounds in
+            let scale = 20 / max(symbol.size.width, symbol.size.height)
+            let size = NSSize(width: symbol.size.width * scale, height: symbol.size.height * scale)
+            symbol.draw(in: NSRect(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2,
+                                   width: size.width, height: size.height))
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
@@ -115,7 +201,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     private let folderLabel = NSTextField(labelWithString: "")
     private let pathField = NSTextField(string: "")
     private let breadcrumbControl = BreadcrumbPathControl()
-    private let pathPresentation = NSStackView()
+    private let pathPresentation = BreadcrumbBar()
     private var pathEditing = false
     private var breadcrumbWidth: CGFloat = -1
     private var breadcrumbDirectory: String?
@@ -213,14 +299,17 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         breadcrumbControl.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
         breadcrumbControl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         breadcrumbControl.setAccessibilityLabel("Folder path")
-        let editPath = iconButton("pencil", tooltip: "Edit Path · ⌘L", action: #selector(editPathClicked))
-        pathPresentation.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
-        pathPresentation.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        pathPresentation.orientation = .horizontal
-        pathPresentation.alignment = .centerY
-        pathPresentation.spacing = 2
-        pathPresentation.addArrangedSubview(breadcrumbControl)
-        pathPresentation.addArrangedSubview(editPath)
+        pathPresentation.onEdit = breadcrumbControl.onEdit
+        pathPresentation.toolTip = "Click empty space to edit the path, or press ⌘L"
+        pathPresentation.addSubview(breadcrumbControl)
+        breadcrumbControl.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            pathPresentation.heightAnchor.constraint(equalToConstant: 27),
+            breadcrumbControl.leadingAnchor.constraint(equalTo: pathPresentation.leadingAnchor, constant: 5),
+            breadcrumbControl.trailingAnchor.constraint(equalTo: pathPresentation.trailingAnchor, constant: -BreadcrumbBar.editingSpace),
+            breadcrumbControl.topAnchor.constraint(equalTo: pathPresentation.topAnchor),
+            breadcrumbControl.bottomAnchor.constraint(equalTo: pathPresentation.bottomAnchor)
+        ])
         pathContent.addArrangedSubview(pathPresentation)
         pathContent.addArrangedSubview(pathField)
         pathContent.addArrangedSubview(searchField)
@@ -654,8 +743,6 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         guard let action = sender.representedObject as? String else { return }
         performAction(action)
     }
-    @objc private func editPathClicked() { focusPath() }
-
     @objc private func breadcrumbClicked() {
         guard let item = breadcrumbControl.clickedPathItem else { return }
         if let url = item.url {
@@ -706,7 +793,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
             return url.path == "/" ? "/" : url.lastPathComponent
         }
         func estimatedWidth(_ url: URL) -> CGFloat {
-            (title(url) as NSString).size(withAttributes: [.font: font]).width + 36
+            (title(url) as NSString).size(withAttributes: [.font: font]).width + 32
         }
         var visible = locations
         overflowLocations = []
@@ -721,7 +808,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         var items = visible.compactMap { url -> NSPathControlItem? in
             guard let item = nativeItems.first(where: { $0.url?.path == url.path }) else { return nil }
             item.title = title(url)
-            item.image = NSImage(systemSymbolName: url.path == home.path ? "house" : "folder", accessibilityDescription: nil)
+            item.image = url.path == home.path ? Self.homePathIcon : Self.folderPathIcon
             return item
         }
         if !overflowLocations.isEmpty {
@@ -731,7 +818,11 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         }
         breadcrumbControl.pathItems = items
         breadcrumbControl.toolTip = currentDirectory.path
+        breadcrumbControl.window?.invalidateCursorRects(for: breadcrumbControl)
     }
+
+    private static let homePathIcon = BreadcrumbPathControl.icon("house")
+    private static let folderPathIcon = BreadcrumbPathControl.icon("folder")
 
     @objc private func pathSubmitted() {
         let input = pathField.stringValue

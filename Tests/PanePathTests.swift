@@ -83,6 +83,15 @@ struct PanePathTests {
         breadcrumbs.mouseDown(with: event)
         expect(!field.isHidden && field.stringValue == fm.homeDirectoryForCurrentUser.path, "unused path space enters full-path editing")
         _ = pane.control(field, textView: field.currentEditor() as! NSTextView, doCommandBy: #selector(NSResponder.cancelOperation(_:)))
+        pane.view.layoutSubtreeIfNeeded()
+        let bar = breadcrumbs.superview!
+        let trailingSpace = bar.bounds.maxX - breadcrumbs.frame.maxX
+        expect(trailingSpace >= 24, "the path bar reserves empty space for editing long paths")
+        let trailingPoint = bar.convert(NSPoint(x: bar.bounds.maxX - 2, y: bar.bounds.midY), to: nil)
+        let trailingClick = NSEvent.mouseEvent(with: .leftMouseDown, location: trailingPoint, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        bar.mouseDown(with: trailingClick)
+        let trailingEditor = field.currentEditor() as? NSTextView
+        expect(trailingEditor?.selectedRange() == NSRange(location: 0, length: fm.homeDirectoryForCurrentUser.path.utf16.count), "clicking the reserved space selects the complete path")
         print("SUCCESS: \(checks) path interaction checks passed.")
     }
 }

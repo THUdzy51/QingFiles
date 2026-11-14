@@ -28,9 +28,9 @@ Click the search button or press `⌘F` to expand and focus the current-folder n
 
 ## Breadcrumb paths and full-path editing
 
-Click a directory segment in the path bar to navigate directly to it. Home appears as `~` and the filesystem root as `/`. When the path is too long, a `…` menu lists omitted ancestor folders. Hover the bar to see the complete absolute path.
+Click a directory segment in the path bar to navigate directly to it. Home appears as `~` and the filesystem root as `/`. When the path is too long, a `…` menu lists omitted ancestor folders. Hover over a segment to highlight it and see the full path in a tooltip.
 
-Click unused space in the path bar, the pencil button, or press `⌘L` to edit the full absolute path with all text selected. Copy it with `⌘C`, paste another path, or click again to position the cursor for a partial edit. Return navigates, accepting absolute paths, `~`, and paths relative to the current folder. The original spelling of symbolic-link paths is preserved. Missing paths and file paths keep the editor open and show feedback in the pane footer.
+Click empty space in the shaded path bar or press `⌘L` to edit the full absolute path with all text selected. The pointer becomes a text cursor over the editing area. Copy it with `⌘C`, paste another path, or click again to position the cursor for a partial edit. Return navigates, accepting absolute paths, `~`, and paths relative to the current folder. The original spelling of symbolic-link paths is preserved. Missing paths and file paths keep the editor open and show feedback in the pane footer.
 
 Escape cancels input and restores breadcrumbs. Clicking elsewhere also discards unsubmitted path input. Navigation requires Return. Each pane retains its own location and history. Opening path editing clears and collapses search, while opening search ends path editing.
 
