@@ -30,14 +30,19 @@ struct PanePathTests {
         pane.view.frame = NSRect(x: 0, y: 0, width: 475, height: 250)
         pane.view.layoutSubtreeIfNeeded()
         let controls = descendants(pane.view)
-        let breadcrumbs = controls.compactMap { $0 as? NSPathControl }.first!
+        let bar = controls.first { $0.toolTip == "Click empty space to edit the path, or press ⌘L" }!
+        let breadcrumbs = bar.subviews.compactMap { $0 as? NSStackView }.first!
+        func names() -> [NSButton] {
+            breadcrumbs.arrangedSubviews.compactMap { $0 as? NSButton }
+                .filter { $0.action == NSSelectorFromString("breadcrumbClicked:") }
+        }
         let field = controls.compactMap { $0 as? NSTextField }.first { $0.placeholderString?.hasPrefix("Enter a path") == true }!
-        expect(breadcrumbs.bounds.width >= 250, "breadcrumb control uses the available narrow-pane width")
-        expect(field.isHidden && !breadcrumbs.isHiddenOrHasHiddenAncestor, "paths initially use breadcrumb mode")
-        expect(breadcrumbs.pathItems.last?.url?.path == nested.path, "last segment represents the displayed folder")
-        expect(breadcrumbs.pathItems.dropLast().last?.url?.path == nested.deletingLastPathComponent().path, "available width preserves the nearest parent segment")
-        expect(breadcrumbs.pathItems.contains { $0.title == "…" && $0.url == nil }, "narrow paths expose an overflow item")
-        expect(breadcrumbs.pathItems.first?.url?.path == "/", "external paths retain the filesystem root")
+        expect(bar.bounds.width >= 250, "breadcrumb control uses the available narrow-pane width")
+        expect(field.isHidden && !bar.isHiddenOrHasHiddenAncestor, "paths initially use breadcrumb mode")
+        expect(names().last?.toolTip == nested.path, "last segment represents the displayed folder")
+        expect(names().dropLast().last?.toolTip == nested.deletingLastPathComponent().path, "available width preserves the nearest parent segment")
+        expect(breadcrumbs.arrangedSubviews.compactMap { $0 as? NSButton }.contains { $0.title == "…" }, "narrow paths expose an overflow item")
+        expect(names().first?.toolTip == "/", "external paths retain the filesystem root")
         pane.focusPath()
         expect(!field.isHidden && field.stringValue == nested.path, "editing exposes the full absolute path")
         let editor = field.currentEditor() as! NSTextView
@@ -73,18 +78,20 @@ struct PanePathTests {
         linkEditor.string = link.path
         _ = pane.control(field, textView: linkEditor, doCommandBy: #selector(NSResponder.insertNewline(_:)))
         expect(pane.currentDirectory.path == link.path, "symlink navigation preserves the entered path spelling")
-        expect(breadcrumbs.pathItems.last?.url?.path == link.path, "symlink breadcrumbs retain the logical location")
+        expect(names().last?.toolTip == link.path, "symlink breadcrumbs retain the logical location")
         pane.navigate(to: URL(fileURLWithPath: "/", isDirectory: true))
-        expect(breadcrumbs.pathItems.count == 1 && breadcrumbs.pathItems.first?.url?.path == "/", "root has one clickable segment")
+        expect(names().count == 1 && names().first?.toolTip == "/", "root has one clickable segment")
         pane.navigate(to: fm.homeDirectoryForCurrentUser)
-        expect(breadcrumbs.pathItems.count == 1 && breadcrumbs.pathItems.first?.title == "~", "home has a compact clickable anchor")
-        let point = breadcrumbs.convert(NSPoint(x: breadcrumbs.bounds.maxX - 2, y: breadcrumbs.bounds.midY), to: nil)
+        expect(names().count == 1 && names().first?.title == "~", "home has a compact clickable anchor")
+        let arrow = breadcrumbs.arrangedSubviews.compactMap { $0 as? NSButton }.last!
+        expect(arrow.action == NSSelectorFromString("showSubfolders:") &&
+               names()[0].action != arrow.action, "directory name and arrow have separate actions")
+        let point = bar.convert(NSPoint(x: breadcrumbs.frame.maxX + 2, y: bar.bounds.midY), to: nil)
         let event = NSEvent.mouseEvent(with: .leftMouseDown, location: point, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
-        breadcrumbs.mouseDown(with: event)
+        bar.mouseDown(with: event)
         expect(!field.isHidden && field.stringValue == fm.homeDirectoryForCurrentUser.path, "unused path space enters full-path editing")
         _ = pane.control(field, textView: field.currentEditor() as! NSTextView, doCommandBy: #selector(NSResponder.cancelOperation(_:)))
         pane.view.layoutSubtreeIfNeeded()
-        let bar = breadcrumbs.superview!
         let trailingSpace = bar.bounds.maxX - breadcrumbs.frame.maxX
         expect(trailingSpace >= 24, "the path bar reserves empty space for editing long paths")
         let trailingPoint = bar.convert(NSPoint(x: bar.bounds.maxX - 2, y: bar.bounds.midY), to: nil)

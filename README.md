@@ -25,7 +25,7 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 | Remote connections | FTP, explicit FTPS, SFTP uploads/downloads, saved profiles, optional Keychain passwords, and an SSH Terminal launcher. |
 | Two or four panes | Each pane has its own folder, navigation history, search, and selection. |
 | Storage capacity | The main window shows the active folder's disk name, used space, total capacity, available space, and a usage bar. |
-| Paths | Click a breadcrumb to navigate, or click the path bar’s empty space or press `⌘L` to select and edit the absolute path. Long paths expose omitted folders in a `…` menu. |
+| Paths | Click a breadcrumb to navigate, or click the path bar’s empty space or press `⌘L` to select and edit the absolute path. Click a segment’s arrow to choose a subfolder, or use the `…` menu to reach omitted ancestors. |
 | Filesystem access | Sidebar shortcuts include Home, Root `/`, Volumes, Applications, and User Library. |
 | Hidden items | Toggle dotfiles and hidden-flag items with `⌘⇧.`. |
 | Search and sorting | Click the search button or press `⌘F` to filter names in the current folder; sort by name, modified date, or size. Folders stay first. |
@@ -97,7 +97,7 @@ Cross-compilation does not constitute runtime validation on the other architectu
 
 ## Tests and validation
 
-On a Mac with a logged-in desktop session, `./test-ui.sh` runs 16 AppKit header checks and 21 path interaction checks covering narrow/wide layouts, search, breadcrumb destinations, full-path selection, history, and cancellation.
+On a Mac with a logged-in desktop session, `./test-ui.sh` runs 16 AppKit header checks and 22 path interaction checks covering narrow/wide layouts, search, breadcrumb destinations, full-path selection, history, and cancellation.
 
 The 1.2 development checks include 36 local filesystem checks and 14 remote unit checks. A separate loopback integration run passes 31 remote checks (including those 14 units), exercising FTP, FTPS, and SFTP. The native local and connection windows have also been rendered and inspected. See [Remote connections](docs/REMOTE_CONNECTIONS.md) to reproduce the network tests.
 

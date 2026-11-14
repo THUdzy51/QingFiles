@@ -34,7 +34,7 @@ struct PaneHeaderTests {
         let controls = descendants(pane.view)
         let fields = controls.compactMap { $0 as? NSTextField }
         let path = fields.first { $0.placeholderString?.hasPrefix("Enter a path") == true }!
-        let breadcrumbs = controls.compactMap { $0 as? NSPathControl }.first!
+        let breadcrumbs = controls.first { $0.toolTip == "Click empty space to edit the path, or press ⌘L" }!
         let search = fields.compactMap { $0 as? NSSearchField }.first!
         let buttons = controls.compactMap { $0 as? NSButton }
         let toggle = buttons.first { $0.toolTip == "Search Current Folder · ⌘F" }!

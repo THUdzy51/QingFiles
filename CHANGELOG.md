@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Add clickable breadcrumb paths and an overflow menu for omitted ancestors. The shaded path bar highlights hovered segments and opens full-path editing from its empty space. Return navigates, and Escape or focus loss cancels editing.
+- Add clickable breadcrumb paths with separate subfolder arrows and an overflow menu for omitted ancestors. The shaded path bar highlights hovered segments and opens full-path editing from its empty space. Return navigates, and Escape or focus loss cancels editing.
 
 - Compact local pane headers by removing visible positional labels, retaining a blue active-folder title, and placing navigation controls beside the path.
 - Reveal current-folder search on demand with a button or Command-F, adapt it to narrow/wide panes, and reset it on Escape or folder changes.
