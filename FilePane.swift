@@ -12,6 +12,12 @@ private final class PaneContainerView: NSView {
 private final class BreadcrumbBar: NSView {
     static let editingSpace: CGFloat = 28
     var onEdit: (() -> Void)?
+    weak var menuButton: BreadcrumbButton? {
+        didSet {
+            let stack = subviews.first as? NSStackView
+            stack?.arrangedSubviews.forEach { $0.needsDisplay = true }
+        }
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         NSColor.labelColor.withAlphaComponent(0.045).setFill()
@@ -31,7 +37,7 @@ private final class BreadcrumbBar: NSView {
 private final class BreadcrumbButton: NSButton {
     static let labelFont = NSFont.systemFont(ofSize: 12)
     var location: URL?
-    var menuIsOpen = false { didSet { needsDisplay = true } }
+    weak var bar: BreadcrumbBar?
     private var hoverTracking: NSTrackingArea?
     private var hovered = false
 
@@ -56,11 +62,17 @@ private final class BreadcrumbButton: NSButton {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        if menuIsOpen || (hovered && window?.isKeyWindow == true) {
+        if showsHighlight {
             NSColor.labelColor.withAlphaComponent(0.10).setFill()
             NSBezierPath(roundedRect: bounds, xRadius: 4, yRadius: 4).fill()
         }
         super.draw(dirtyRect)
+    }
+
+    private var showsHighlight: Bool {
+        if let menuButton = bar?.menuButton { return menuButton === self }
+        guard hovered, let window, window.isKeyWindow else { return false }
+        return bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
     }
 }
 
@@ -771,13 +783,14 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         let placement = BreadcrumbMenuPlacement(button: button, bar: pathPresentation, window: window)
         menu.delegate = placement
         let closedImage = button.image
-        button.menuIsOpen = true
+        // Menu tracking can delay mouse-exit events. Repaint every segment before it begins.
+        pathPresentation.menuButton = button
         if button.location != nil { button.image = QingTheme.symbol("chevron.down", size: 10) }
         defer {
             button.image = closedImage
-            button.menuIsOpen = false
+            pathPresentation.menuButton = nil
         }
-        button.displayIfNeeded()
+        pathPresentation.displayIfNeeded()
         let anchor = button.convert(window.convertPoint(fromScreen: placement.origin), from: nil)
         withExtendedLifetime(placement) {
             _ = menu.popUp(positioning: nil, at: anchor, in: button)
@@ -875,6 +888,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     }
 
     private func addBreadcrumbButton(_ button: BreadcrumbButton, width: CGFloat, flexible: Bool = false) {
+        button.bar = pathPresentation
         breadcrumbStack.addArrangedSubview(button)
         let widthConstraint = button.widthAnchor.constraint(equalToConstant: width)
         if flexible {
