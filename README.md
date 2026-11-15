@@ -27,6 +27,7 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 | Storage capacity | The main window shows the active folder's disk name, used space, total capacity, available space, and a usage bar. |
 | Paths | Click a breadcrumb to navigate, or click the path bar’s empty space or press `⌘L` to select and edit the absolute path. Click a segment’s arrow to choose a subfolder, or use the `…` menu to reach omitted ancestors. |
 | External files and folders | Use Open With QingFiles for documents, or Services → Reveal in QingFiles for files and folders. Files are selected in their original folder; a single folder opens directly in the active pane. |
+| WeChat file reveal | Enable the optional switch in QingFiles → Settings, then restart WeChat to send its Show in Finder action directly to QingFiles. Switch it off and restart WeChat to restore the previous viewer. |
 | Filesystem access | Sidebar shortcuts include Home, Root `/`, Volumes, Applications, and User Library. |
 | Hidden items | Toggle dotfiles and hidden-flag items with `⌘⇧.`. |
 | Search and sorting | Click the search button or press `⌘F` to filter names in the current folder; sort by name, modified date, or size. Folders stay first. |
@@ -103,6 +104,8 @@ On a Mac with a logged-in desktop session, `./test-ui.sh` runs 16 AppKit header 
 The 1.2 development checks include 36 local filesystem checks and 14 remote unit checks. A separate loopback integration run passes 31 remote checks (including those 14 units), exercising FTP, FTPS, and SFTP. The native local and connection windows have also been rendered and inspected. See [Remote connections](docs/REMOTE_CONNECTIONS.md) to reproduce the network tests.
 
 The current suite has 56 local checks and 15 remote unit checks. New-document checks cover all seven types, unique naming, preserved resource bytes, dangling symlinks, concurrent creation, and missing resources.
+
+`./test.sh` also runs 10 persistent reveal setting checks in disposable preference domains. These cover saved state, original-value restoration, repeated enable, external preference changes, unsupported values, and write failures.
 
 `./test.sh` runs filesystem checks in a unique temporary directory and cleans it up afterward. The suite includes the original 36 checks covering listing, hidden items, copy/move, rename, conflict preservation, symbolic links, invalid names, overlapping selections, and partial success. It never trashes real user files; successful system Trash behavior still needs manual verification.
 

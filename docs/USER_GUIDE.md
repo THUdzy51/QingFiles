@@ -46,6 +46,12 @@ QingFiles registers as an alternate application for documents and folders. Finde
 
 For WeChat on macOS, install QingFiles in `/Applications`, then use **Open With → Other Apps → QingFiles** on the downloaded attachment. In local acceptance testing, the app appeared in this menu after installation in `/Applications`; the development-directory copy was absent. Choosing it revealed and selected the attachment in QingFiles.
 
+### WeChat Show in Finder setting
+
+Open **QingFiles → Settings…** or press **Command-comma**, then enable **Use QingFiles for Show in Finder in WeChat**. Fully quit and reopen WeChat. Its existing **Show in Finder** command then requests QingFiles to reveal the attachment. The menu label remains controlled by WeChat.
+
+This setting starts off when WeChat has no QingFiles viewer preference. It persists across normal launches and changes WeChat's own viewer preference. Turning it off restores the value saved before enabling it, or removes the override if none existed. Fully quit and reopen WeChat after turning it off too. If another tool changes the preference while the feature is enabled, QingFiles preserves that newer value when disabling it. The Settings window reports access or write failures so you can retry.
+
 ## Create a blank document
 
 Right-click in a local pane and choose **New**, then Folder, Word Document (`.docx`), Excel Workbook (`.xlsx`), PowerPoint Presentation (`.pptx`), PDF Document (`.pdf`), Text Document (`.txt`), or Markdown Document (`.md`). The item is created in that pane's displayed folder, including when you right-click an existing item. Existing names receive a numbered suffix such as `New Word Document (2).docx`.
