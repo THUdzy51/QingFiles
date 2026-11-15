@@ -24,7 +24,8 @@ struct PanePathTests {
         defer { try? fm.removeItem(at: root) }
         let pane = FilePane(directory: nested, title: "Left")
         pane.onActivate = { $0.isActive = true }
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 475, height: 250), styleMask: [.titled], backing: .buffered, defer: false)
+        let window = FileBrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 475, height: 250), styleMask: [.titled], backing: .buffered, defer: false)
+        window.onMouseDown = { [weak pane] point in pane?.dismissPathEditor(clickAt: point) }
         window.isReleasedWhenClosed = false
         window.contentView = pane.view
         pane.view.frame = NSRect(x: 0, y: 0, width: 475, height: 250)
@@ -66,6 +67,16 @@ struct PanePathTests {
         field.stringValue = root.path
         _ = window.makeFirstResponder(nil)
         expect(field.isHidden && pane.currentDirectory.path == parent.path, "blur discards unsubmitted input without navigating")
+        pane.focusPath()
+        let outsideEditor = field.currentEditor() as! NSTextView
+        outsideEditor.string = root.path
+        field.stringValue = root.path
+        pane.view.layoutSubtreeIfNeeded()
+        let headerPoint = field.convert(NSPoint(x: field.bounds.midX, y: field.bounds.maxY + 12), to: nil)
+        let headerClick = NSEvent.mouseEvent(with: .leftMouseDown, location: headerPoint, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        window.sendEvent(headerClick)
+        expect(field.isHidden && !bar.isHidden && pane.currentDirectory.path == parent.path,
+               "clicking blank header space restores breadcrumbs and discards unsubmitted input")
         pane.goBack()
         expect(pane.currentDirectory.path == nested.path, "path navigation adds one history entry")
         pane.goForward()

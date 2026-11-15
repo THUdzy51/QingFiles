@@ -14,7 +14,7 @@ struct QingFilesMain {
 }
 
 final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuItemValidation, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
-    private var window: NSWindow!
+    private var window: FileBrowserWindow!
     private var root = NSView()
     private var sidebarStack = TopAlignedStackView()
     private var paneContainer = NSStackView()
@@ -78,6 +78,10 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
 
     func windowWillClose(_ notification: Notification) { saveState() }
 
+    func windowDidResignKey(_ notification: Notification) {
+        panes.forEach { $0.dismissPathEditor() }
+    }
+
     private func saveState() {
         guard !isPreview else { return }
         UserDefaults.standard.set(panes.map { $0.currentDirectory.path }, forKey: "locations")
@@ -96,7 +100,11 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     }
 
     private func createWindow() {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1240, height: 760), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window = FileBrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 1240, height: 760), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        // Blank areas and some controls leave the field editor focused when clicked.
+        window.onMouseDown = { [weak self] point in
+            self?.panes.forEach { $0.dismissPathEditor(clickAt: point) }
+        }
         window.title = "QingFiles"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true

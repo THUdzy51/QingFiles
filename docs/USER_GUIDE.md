@@ -32,7 +32,7 @@ Click a directory name in the path bar to navigate directly to it. Click the arr
 
 Click empty space in the shaded path bar or press `⌘L` to edit the full absolute path with all text selected. The pointer becomes a text cursor over the editing area. Copy it with `⌘C`, paste another path, or click again to position the cursor for a partial edit. Return navigates, accepting absolute paths, `~`, and paths relative to the current folder. The original spelling of symbolic-link paths is preserved. Missing paths and file paths keep the editor open and show feedback in the pane footer.
 
-Escape cancels input and restores breadcrumbs. Clicking elsewhere also discards unsubmitted path input. Navigation requires Return. Each pane retains its own location and history. Opening path editing clears and collapses search, while opening search ends path editing.
+Press Escape, click outside the field (including blank space), or switch away from the browser window to discard unsubmitted path input and restore breadcrumbs. Press Return to navigate to the entered path. Each pane retains its own location and history. Opening path editing clears and collapses search, while opening search ends path editing.
 
 ## Create a blank document
 

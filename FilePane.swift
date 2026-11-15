@@ -1,6 +1,20 @@
 import AppKit
 import Foundation
 
+final class FileBrowserWindow: NSWindow {
+    var onMouseDown: ((NSPoint) -> Void)?
+
+    override func sendEvent(_ event: NSEvent) {
+        switch event.type {
+        case .leftMouseDown, .rightMouseDown, .otherMouseDown:
+            onMouseDown?(event.locationInWindow)
+        default:
+            break
+        }
+        super.sendEvent(event)
+    }
+}
+
 private final class PaneContainerView: NSView {
     var onActivate: (() -> Void)?
     override func mouseDown(with event: NSEvent) {
@@ -479,6 +493,12 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         pathField.stringValue = currentDirectory.path
         updateSearchLayout()
         pathField.selectText(nil)
+    }
+
+    func dismissPathEditor(clickAt point: NSPoint? = nil) {
+        guard pathEditing, let window = pathField.window else { return }
+        if let point, pathField.bounds.contains(pathField.convert(point, from: nil)) { return }
+        window.makeFirstResponder(nil)
     }
 
     func focusSearch() {

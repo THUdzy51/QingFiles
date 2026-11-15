@@ -97,7 +97,7 @@ Cross-compilation does not constitute runtime validation on the other architectu
 
 ## Tests and validation
 
-On a Mac with a logged-in desktop session, `./test-ui.sh` runs 16 AppKit header checks and 22 path interaction checks covering narrow/wide layouts, search, breadcrumb destinations, full-path selection, history, and cancellation.
+On a Mac with a logged-in desktop session, `./test-ui.sh` runs 16 AppKit header checks and 23 path interaction checks covering narrow/wide layouts, search, breadcrumb destinations, full-path selection, history, and cancellation.
 
 The 1.2 development checks include 36 local filesystem checks and 14 remote unit checks. A separate loopback integration run passes 31 remote checks (including those 14 units), exercising FTP, FTPS, and SFTP. The native local and connection windows have also been rendered and inspected. See [Remote connections](docs/REMOTE_CONNECTIONS.md) to reproduce the network tests.
 
