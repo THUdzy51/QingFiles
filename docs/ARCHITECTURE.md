@@ -48,6 +48,10 @@ This is an unsandboxed, ad-hoc-signed desktop application using the current user
 
 Remote connections are explicitly initiated in a separate workspace using macOS curl/OpenSSH; no analytics is included. See REMOTE_CONNECTIONS.md for password and host-key handling. Opening a file invokes its system default application, which has its own behavior. Symlink and collision checks reduce common mistakes; they are not a transactional filesystem or a defense against every concurrent modification race.
 
+## External file reveal
+
+`build.sh` declares supported document types with the Viewer role and Alternate handler rank. `QingAppDelegate.application(_:open:)` queues requests received before the main window exists. File URLs are validated by `FilePane.revealFiles`, then navigated and selected in the active pane. Selection survives activation refreshes until the current listing finishes. Navigating elsewhere invalidates it. Explicitly revealed hidden items are included individually, and listing URLs retain the caller’s logical directory spelling. Same-folder batches are supported.
+
 ## UI verification fixtures
 
 The app accepts `--preview PATH --snapshot OUTPUT.png` for developer smoke checks. The fixture must contain `Workspace`, `Library`, `Workspace/Climate Research`, and `Library/Paper Notes`, including `Workspace/README.md`. A separately packaged QA copy can set `QingPreviewPath` and `QingSnapshotPath` in its Info.plist for Launch Services testing. Preview mode does not save normal user preferences. These keys must not be added to release bundles.

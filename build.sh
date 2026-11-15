@@ -29,6 +29,22 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>local.qingfiles.app</string>
 <key>CFBundleExecutable</key><string>QingFiles</string>
 <key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleDocumentTypes</key><array><dict>
+<key>CFBundleTypeName</key><string>Reveal in QingFiles</string>
+<key>CFBundleTypeRole</key><string>Viewer</string>
+<key>LSHandlerRank</key><string>Alternate</string>
+<key>LSItemContentTypes</key><array>
+<string>com.adobe.pdf</string>
+<string>public.text</string>
+<string>public.image</string>
+<string>com.microsoft.word.doc</string>
+<string>com.microsoft.excel.xls</string>
+<string>com.microsoft.powerpoint.ppt</string>
+<string>org.openxmlformats.wordprocessingml.document</string>
+<string>org.openxmlformats.spreadsheetml.sheet</string>
+<string>org.openxmlformats.presentationml.presentation</string>
+</array>
+</dict></array>
 <key>CFBundleShortVersionString</key><string>1.3.0</string>
 <key>CFBundleVersion</key><string>5</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>

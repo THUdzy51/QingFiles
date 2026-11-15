@@ -34,6 +34,14 @@ Click empty space in the shaded path bar or press `⌘L` to edit the full absolu
 
 Press Escape, click outside the field (including blank space), or switch away from the browser window to discard unsubmitted path input and restore breadcrumbs. Press Return to navigate to the entered path. Each pane retains its own location and history. Opening path editing clears and collapses search, while opening search ends path editing.
 
+## Reveal files from another app
+
+In Finder or a compatible app, choose **Open With → QingFiles** on a PDF, Word, Excel, PowerPoint, text, or image file. QingFiles opens or activates its main window, navigates the active pane to the containing folder, and selects and scrolls to the original file. Search in that pane is cleared so the file can be seen. Use the existing copy, Quick Look, and open actions after revealing it.
+
+You can select several files from one folder together. Requests spanning different folders show an error asking you to reveal one folder at a time. An explicitly revealed hidden file remains visible in that pane until you navigate away, while the Hidden setting continues to control other hidden items. Missing or inaccessible files produce an error. Finish an active naming operation or close a dialog before retrying a reveal request.
+
+QingFiles registers as an alternate application. Supported apps may show it immediately or after macOS refreshes the Open With list. Menu availability in third-party apps such as WeChat depends on the app and should be checked with a downloaded local attachment. The system’s **Show in Finder** action continues to invoke Finder.
+
 ## Create a blank document
 
 Right-click in a local pane and choose **New**, then Folder, Word Document (`.docx`), Excel Workbook (`.xlsx`), PowerPoint Presentation (`.pptx`), PDF Document (`.pdf`), Text Document (`.txt`), or Markdown Document (`.md`). The item is created in that pane's displayed folder, including when you right-click an existing item. Existing names receive a numbered suffix such as `New Word Document (2).docx`.

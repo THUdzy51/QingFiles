@@ -37,6 +37,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private var previewPanel: QLPreviewPanel?
     private var userFavorites: [String] = []
     private var remoteWorkspace: RemoteWorkspace?
+    private var pendingOpenURLs: [URL] = []
     private var isPreview: Bool { argument("--preview") != nil }
     private var fourPanes = false
     private let worker = DispatchQueue(label: "local.qingfiles.operations", qos: .userInitiated)
@@ -54,7 +55,33 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        if !pendingOpenURLs.isEmpty {
+            let urls = pendingOpenURLs
+            pendingOpenURLs.removeAll()
+            revealExternalFiles(urls)
+        }
         if isPreview { schedulePreview() }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard window != nil else {
+            pendingOpenURLs.append(contentsOf: urls)
+            return
+        }
+        revealExternalFiles(urls)
+    }
+
+    private func revealExternalFiles(_ urls: [URL]) {
+        window.deminiaturize(nil)
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        guard window.attachedSheet == nil else {
+            statusLabel.stringValue = "Close the current dialog, then choose Open With QingFiles again."
+            NSSound.beep()
+            return
+        }
+        do { try activePane.revealFiles(urls) }
+        catch { showMessage("Cannot Reveal Files", error.localizedDescription) }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
