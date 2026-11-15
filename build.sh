@@ -9,7 +9,7 @@ app_dir="$output_dir/QingFiles.app"
 build_dir="${QINGFILES_BUILD_DIR:-$source_dir/.build}"
 mkdir -p "$build_dir/ModuleCache" "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 export CLANG_MODULE_CACHE_PATH="$build_dir/ModuleCache"
-swiftc -swift-version 5 -parse-as-library -O -target "${architecture}-apple-macosx13.0" -module-cache-path "$build_dir/ModuleCache" -framework AppKit -framework Quartz -framework Security "$source_dir/RemoteService.swift" "$source_dir/RemoteWorkspace.swift" "$source_dir/Theme.swift" "$source_dir/FileService.swift" "$source_dir/FilePane.swift" "$source_dir/App.swift" -o "$app_dir/Contents/MacOS/QingFiles"
+swiftc -swift-version 5 -parse-as-library -O -target "${architecture}-apple-macosx13.0" -module-cache-path "$build_dir/ModuleCache" -framework AppKit -framework Quartz -framework Security "$source_dir/RemoteService.swift" "$source_dir/RemoteWorkspace.swift" "$source_dir/Theme.swift" "$source_dir/FileService.swift" "$source_dir/FileRevealService.swift" "$source_dir/FilePane.swift" "$source_dir/App.swift" -o "$app_dir/Contents/MacOS/QingFiles"
 swiftc -swift-version 5 -module-cache-path "$build_dir/ModuleCache" -framework AppKit "$source_dir/Tools/MakeIcon.swift" -o "$build_dir/make-icon"
 "$build_dir/make-icon" "$build_dir/icon-1024.png"
 mkdir -p "$build_dir/AppIcon.iconset"
@@ -44,7 +44,21 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 <string>org.openxmlformats.spreadsheetml.sheet</string>
 <string>org.openxmlformats.presentationml.presentation</string>
 </array>
+</dict><dict>
+<key>CFBundleTypeName</key><string>Folder</string>
+<key>CFBundleTypeRole</key><string>Viewer</string>
+<key>LSHandlerRank</key><string>Alternate</string>
+<key>LSItemContentTypes</key><array><string>public.folder</string></array>
 </dict></array>
+<key>NSServices</key><array><dict>
+<key>NSMenuItem</key><dict><key>default</key><string>Reveal in QingFiles</string></dict>
+<key>NSMessage</key><string>revealInQingFiles</string>
+<key>NSPortName</key><string>QingFiles</string>
+<key>NSSendTypes</key><array><string>public.file-url</string><string>NSFilenamesPboardType</string></array>
+<key>NSSendFileTypes</key><array><string>public.item</string></array>
+<key>NSRequiredContext</key><dict/>
+</dict></array>
+<key>CFBundleDevelopmentRegion</key><string>en</string>
 <key>CFBundleShortVersionString</key><string>1.3.0</string>
 <key>CFBundleVersion</key><string>5</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
@@ -56,6 +70,7 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 PLIST
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" "$app_dir/Contents/Info.plist"
 cp -R "$source_dir/Resources/BlankDocuments" "$app_dir/Contents/Resources/"
+cp -R "$source_dir/Resources/zh-Hans.lproj" "$app_dir/Contents/Resources/"
 cp "$source_dir/PrivacyInfo.xcprivacy" "$app_dir/Contents/Resources/PrivacyInfo.xcprivacy"
 swiftc -swift-version 5 -O -target "${architecture}-apple-macosx13.0" -module-cache-path "$build_dir/ModuleCache" "$source_dir/Tools/Askpass.swift" -o "$app_dir/Contents/MacOS/QingFilesAskpass"
 codesign --force --sign - "$app_dir/Contents/MacOS/QingFilesAskpass"

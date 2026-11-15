@@ -483,6 +483,10 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         for file in files {
             _ = try FileManager.default.attributesOfItem(atPath: file.path)
         }
+        var isDirectory: ObjCBool = false
+        let opensFolder = files.count == 1 &&
+            FileManager.default.fileExists(atPath: files[0].path, isDirectory: &isDirectory) &&
+            isDirectory.boolValue && !NSWorkspace.shared.isFilePackage(atPath: files[0].path)
         _ = view
         guard view.window?.makeFirstResponder(nil) != false else {
             throw FileServiceError.invalid("Finish naming the current item before revealing another file.")
@@ -492,7 +496,11 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         searchField.stringValue = ""
         searchExpanded = false
         updateSearchLayout()
-        navigate(to: directory, selecting: Set(files.map(\.path)))
+        if opensFolder {
+            navigate(to: files[0])
+        } else {
+            navigate(to: directory, selecting: Set(files.map(\.path)))
+        }
         view.window?.makeFirstResponder(table)
     }
 

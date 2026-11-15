@@ -49,6 +49,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         buildMenu()
         if !isPreview { userFavorites = UserDefaults.standard.stringArray(forKey: "favorites") ?? [] }
         createWindow()
+        NSApp.servicesProvider = self
         storageRefreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             guard let self, self.window.isVisible else { return }
             self.refreshStorage()
@@ -69,6 +70,16 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
             return
         }
         revealExternalFiles(urls)
+    }
+
+    @objc func revealInQingFiles(_ pasteboard: NSPasteboard, userData: String?,
+                                error: AutoreleasingUnsafeMutablePointer<NSString?>) {
+        do {
+            let urls = try FileRevealService.fileURLs(from: pasteboard)
+            application(NSApp, open: urls)
+        } catch let serviceError {
+            error.pointee = serviceError.localizedDescription as NSString
+        }
     }
 
     private func revealExternalFiles(_ urls: [URL]) {

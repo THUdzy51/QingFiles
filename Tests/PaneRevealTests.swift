@@ -102,6 +102,10 @@ struct PaneRevealTests {
         pane.navigate(to: other)
         waitUntil { pane.currentDirectory.path == other.path && status.stringValue == "0 items" }
         expect(pane.selectedURLs.isEmpty, "a stale listing cannot select files after navigation")
+        try pane.revealFiles([source])
+        waitUntil { status.stringValue != "Loading…" }
+        expect(pane.currentDirectory.path == source.path && table.numberOfRows > 0,
+               "opening a folder browses its contents directly")
         print("SUCCESS: \(checks) external reveal checks passed.")
     }
 }

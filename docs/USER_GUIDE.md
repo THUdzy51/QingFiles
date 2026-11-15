@@ -38,9 +38,13 @@ Press Escape, click outside the field (including blank space), or switch away fr
 
 In Finder or a compatible app, choose **Open With → QingFiles** on a PDF, Word, Excel, PowerPoint, text, or image file. QingFiles opens or activates its main window, navigates the active pane to the containing folder, and selects and scrolls to the original file. Search in that pane is cleared so the file can be seen. Use the existing copy, Quick Look, and open actions after revealing it.
 
+For a folder, use **Services → Reveal in QingFiles** in the Finder context menu to browse its contents in the active pane. The service appears as **在 QingFiles 中显示** in Simplified Chinese. The same service accepts files and appears in other apps that provide selected local files to macOS Services. A single ordinary folder opens directly; document packages and multiple selected items are revealed in their containing folder.
+
 You can select several files from one folder together. Requests spanning different folders show an error asking you to reveal one folder at a time. An explicitly revealed hidden file remains visible in that pane until you navigate away, while the Hidden setting continues to control other hidden items. Missing or inaccessible files produce an error. Finish an active naming operation or close a dialog before retrying a reveal request.
 
-QingFiles registers as an alternate application. Supported apps may show it immediately or after macOS refreshes the Open With list. Menu availability in third-party apps such as WeChat depends on the app and should be checked with a downloaded local attachment. The system’s **Show in Finder** action continues to invoke Finder.
+QingFiles registers as an alternate application for documents and folders. Finder offers Services for folders even when its context menu omits Open With. Menu availability in third-party apps such as WeChat depends on the app and should be checked with a downloaded local attachment. An independent Reveal in QingFiles item in an app’s own context menu requires integration by that app. The system’s **Show in Finder** action invokes Finder.
+
+For WeChat on macOS, install QingFiles in `/Applications`, then use **Open With → Other Apps → QingFiles** on the downloaded attachment. In local acceptance testing, the app appeared in this menu after installation in `/Applications`; the development-directory copy was absent. Choosing it revealed and selected the attachment in QingFiles.
 
 ## Create a blank document
 

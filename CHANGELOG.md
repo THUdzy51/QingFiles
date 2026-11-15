@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Add QingFiles to Open With for PDF, Office, text, and image files. Launch or activate the browser, reveal original files in the active pane, and select them after the folder loads. External reveal clears search, supports same-folder multiple selection, and retains logical symlink paths.
+- Add QingFiles to Open With for PDF, Office, text, image files, and folders, plus a Reveal in QingFiles service for files and folders. Launch or activate the browser, reveal original files in the active pane, and select them after the folder loads. A single ordinary folder opens directly. External reveal clears search, supports same-folder multiple selection, and retains logical symlink paths.
 
 - Add clickable breadcrumb paths with separate subfolder arrows and an overflow menu for omitted ancestors. Menus open beneath the path bar, aligned with their controls. The shaded path bar highlights hovered segments and opens full-path editing from its empty space. Return navigates. Escape, clicking outside the field, or switching away from the browser window restores breadcrumbs.
 
