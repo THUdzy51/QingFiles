@@ -64,6 +64,22 @@ private final class BreadcrumbButton: NSButton {
     }
 }
 
+private final class BreadcrumbMenuPlacement: NSObject, NSMenuDelegate {
+    let origin: NSPoint
+
+    init(button: NSView, bar: NSView, window: NSWindow) {
+        let buttonFrame = window.convertToScreen(button.convert(button.bounds, to: nil))
+        let barFrame = window.convertToScreen(bar.convert(bar.bounds, to: nil))
+        origin = NSPoint(x: buttonFrame.minX, y: barFrame.minY - 6)
+    }
+
+    func confinementRect(for menu: NSMenu, on screen: NSScreen?) -> NSRect {
+        guard let frame = screen?.visibleFrame, origin.y > frame.minY else { return .zero }
+        return NSRect(x: frame.minX, y: frame.minY, width: frame.width,
+                      height: min(origin.y, frame.maxY) - frame.minY)
+    }
+}
+
 private final class FileListTable: NSTableView {
     weak var pane: FilePane?
 
@@ -751,12 +767,21 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         guard isActive, let window = button.window, window.isVisible,
               NSApp.keyWindow == nil || NSApp.keyWindow === window,
               !button.isHiddenOrHasHiddenAncestor else { return }
-        button.menuIsOpen = true
+        // Anchor the menu to the arrow's leading edge and below the entire path bar.
+        let placement = BreadcrumbMenuPlacement(button: button, bar: pathPresentation, window: window)
+        menu.delegate = placement
         let closedImage = button.image
+        button.menuIsOpen = true
         if button.location != nil { button.image = QingTheme.symbol("chevron.down", size: 10) }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY - 3), in: button)
-        button.image = closedImage
-        button.menuIsOpen = false
+        defer {
+            button.image = closedImage
+            button.menuIsOpen = false
+        }
+        button.displayIfNeeded()
+        let anchor = button.convert(window.convertPoint(fromScreen: placement.origin), from: nil)
+        withExtendedLifetime(placement) {
+            _ = menu.popUp(positioning: nil, at: anchor, in: button)
+        }
     }
 
     @objc private func breadcrumbMenuItemClicked(_ sender: NSMenuItem) {
