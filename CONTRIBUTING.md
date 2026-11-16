@@ -15,6 +15,7 @@ Use Swift 5 language mode as configured by the scripts, with a macOS 13 deployme
 ## Validation checklist
 
 - Run `./test.sh` when changing operations or shared models.
+- After changing document type registration, build the app and run `./test-registration.sh /path/to/QingFiles.app`. This registers that bundle with Launch Services, checks Viewer eligibility for PDF and archive fixtures, and verifies that default applications stay unchanged.
 - Run the disposable loopback integration suite from `docs/REMOTE_CONNECTIONS.md` when changing remote adapters or credentials. Never use a real server for regression fixtures.
 - Add regression checks for meaningful behavior changes, especially collision, symlink, and partial-failure behavior.
 - Test mutations only in a disposable fixture directory.

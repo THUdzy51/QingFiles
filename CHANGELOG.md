@@ -7,6 +7,7 @@
 - Align the preview and file browser headers and use native file icons in the preview tree and media placeholders.
 - Default to a selection preview on the right in two-pane mode, with a toolbar button to switch to two independent folders. Preview a folder or archive as an expandable tree or an image and video list. Open individual archive entries with Quick Look.
 - Move files between local panes by dragging to the file list or a folder row. Hold Option to copy.
+- Register archive files as an alternate Viewer so compatible apps, including WeChat, can pass ZIP reveal requests to QingFiles. Reveal and select the original archive without extracting it or changing its default application.
 
 - Rename existing items inline with a single filename click. Select only the filename stem while keeping its extension visible; retain icon selection, modifier clicks, dragging, and double-click opening. Return or an outside click commits, Escape cancels, and validation failures allow retry. Keep renamed selections visible after sorting and filtering.
 
