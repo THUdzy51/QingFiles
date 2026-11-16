@@ -10,7 +10,7 @@ QingFiles puts local folders side by side so you can browse the filesystem, see 
 
 ## Download and launch
 
-Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFiles/releases), extract it, and open `QingFiles.app`. Optionally drag the app into Applications and keep it in the Dock.
+Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFiles/releases), extract it, and open `QingFiles.app`. For WeChat’s Open With menu, use a copy installed in Applications. You can also keep the app in the Dock.
 
 - macOS 13 or later.
 - `arm64`: Apple silicon, including M-series Macs.
@@ -26,6 +26,8 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 | Two or four panes | Each pane has its own folder, navigation history, search, and selection. |
 | Storage capacity | The main window shows the active folder's disk name, used space, total capacity, available space, and a usage bar. |
 | Paths | Click a breadcrumb to navigate, or click the path bar’s empty space or press `⌘L` to select and edit the absolute path. Click a segment’s arrow to choose a subfolder, or use the `…` menu to reach omitted ancestors. |
+| External files and folders | Use Open With QingFiles for documents, or Services → Reveal in QingFiles for files and folders. Files are selected in their original folder; a single folder opens directly in the active pane. |
+| WeChat file reveal | Enable the optional switch in QingFiles → Settings, then restart WeChat to send its Show in Finder action directly to QingFiles. Switch it off and restart WeChat to restore the previous viewer. |
 | Filesystem access | Sidebar shortcuts include Home, Root `/`, Volumes, Applications, and User Library. |
 | Hidden items | Toggle dotfiles and hidden-flag items with `⌘⇧.`. |
 | Search and sorting | Click the search button or press `⌘F` to filter names in the current folder; sort by name, modified date, or size. Folders stay first. |
@@ -97,11 +99,13 @@ Cross-compilation does not constitute runtime validation on the other architectu
 
 ## Tests and validation
 
-On a Mac with a logged-in desktop session, `./test-ui.sh` runs 16 AppKit header checks and 23 path interaction checks covering narrow/wide layouts, search, breadcrumb destinations, full-path selection, history, and cancellation.
+On a Mac with a logged-in desktop session, `./test-ui.sh` runs 16 AppKit header checks, 23 path interaction checks, 23 external reveal checks, and 5 service pasteboard checks. These cover narrow/wide layouts, search, breadcrumbs, path editing, history, asynchronous selection, scrolling, folder opening, hidden files, symlink paths, and stale listing protection.
 
 The 1.2 development checks include 36 local filesystem checks and 14 remote unit checks. A separate loopback integration run passes 31 remote checks (including those 14 units), exercising FTP, FTPS, and SFTP. The native local and connection windows have also been rendered and inspected. See [Remote connections](docs/REMOTE_CONNECTIONS.md) to reproduce the network tests.
 
 The current suite has 56 local checks and 15 remote unit checks. New-document checks cover all seven types, unique naming, preserved resource bytes, dangling symlinks, concurrent creation, and missing resources.
+
+`./test.sh` also runs 10 persistent reveal setting checks in disposable preference domains. These cover saved state, original-value restoration, repeated enable, external preference changes, unsupported values, and write failures.
 
 `./test.sh` runs filesystem checks in a unique temporary directory and cleans it up afterward. The suite includes the original 36 checks covering listing, hidden items, copy/move, rename, conflict preservation, symbolic links, invalid names, overlapping selections, and partial success. It never trashes real user files; successful system Trash behavior still needs manual verification.
 

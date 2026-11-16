@@ -92,10 +92,12 @@ enum FileService {
     static func list(_ directory: URL, showHidden: Bool) throws -> [FileEntry] {
         try requireDirectory(directory)
         let urls = try FileManager.default.contentsOfDirectory(
-            at: directory, includingPropertiesForKeys: Array(resourceKeys), options: []
+            at: directory.resolvingSymlinksInPath(), includingPropertiesForKeys: Array(resourceKeys), options: []
         )
         var result: [FileEntry] = []
-        for url in urls {
+        for listedURL in urls {
+            // Enumeration can resolve a symlink in the parent path (for example /var).
+            let url = directory.appendingPathComponent(listedURL.lastPathComponent)
             // A concurrently removed entry should not make the whole folder fail.
             guard let values = try? url.resourceValues(forKeys: resourceKeys) else { continue }
             let hidden = (values.isHidden ?? false) || url.lastPathComponent.hasPrefix(".")

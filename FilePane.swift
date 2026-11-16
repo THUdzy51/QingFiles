@@ -213,6 +213,8 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     private var backHistory: [URL] = []
     private var forwardHistory: [URL] = []
     private var pendingNewURL: URL?
+    private var revealedPaths: Set<String> = []
+    private var pendingRevealSelection: Set<String>?
     private var inlineURL: URL?
     private var inlineExtension = ""
     private weak var inlineField: NSTextField?
@@ -434,19 +436,26 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
 
     func activate() { onActivate?(self) }
 
-    func navigate(to directory: URL) {
+    func navigate(to directory: URL, selecting paths: Set<String> = []) {
         guard directory.isFileURL else { return }
         let newURL = directory.standardizedFileURL
         guard view.window?.makeFirstResponder(nil) != false else { return }
-        guard newURL.path != currentDirectory.path else { refresh(); return }
+        guard newURL.path != currentDirectory.path else {
+            revealedPaths = paths
+            pendingRevealSelection = paths.isEmpty ? nil : paths
+            refresh()
+            return
+        }
         backHistory.append(currentDirectory)
         forwardHistory.removeAll()
-        changeDirectory(newURL)
+        changeDirectory(newURL, selecting: paths)
     }
 
-    private func changeDirectory(_ directory: URL) {
+    private func changeDirectory(_ directory: URL, selecting paths: Set<String> = []) {
         guard view.window?.makeFirstResponder(nil) != false else { return }
         pendingNewURL = nil
+        revealedPaths = paths
+        pendingRevealSelection = paths.isEmpty ? nil : paths
         currentDirectory = directory
         _ = view
         searchField.stringValue = ""
@@ -460,6 +469,39 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         updateDirectoryChrome()
         refresh()
         onDirectoryChanged?(self)
+    }
+
+    func revealFiles(_ urls: [URL]) throws {
+        guard !urls.isEmpty, urls.allSatisfy(\.isFileURL) else {
+            throw FileServiceError.invalid("Choose one or more local files to reveal.")
+        }
+        let files = urls.map(\.standardizedFileURL)
+        let directory = files[0].deletingLastPathComponent()
+        guard files.allSatisfy({ $0.deletingLastPathComponent().path == directory.path }) else {
+            throw FileServiceError.invalid("Choose files from one folder at a time.")
+        }
+        for file in files {
+            _ = try FileManager.default.attributesOfItem(atPath: file.path)
+        }
+        var isDirectory: ObjCBool = false
+        let opensFolder = files.count == 1 &&
+            FileManager.default.fileExists(atPath: files[0].path, isDirectory: &isDirectory) &&
+            isDirectory.boolValue && !NSWorkspace.shared.isFilePackage(atPath: files[0].path)
+        _ = view
+        guard view.window?.makeFirstResponder(nil) != false else {
+            throw FileServiceError.invalid("Finish naming the current item before revealing another file.")
+        }
+        activate()
+        pendingNewURL = nil
+        searchField.stringValue = ""
+        searchExpanded = false
+        updateSearchLayout()
+        if opensFolder {
+            navigate(to: files[0])
+        } else {
+            navigate(to: directory, selecting: Set(files.map(\.path)))
+        }
+        view.window?.makeFirstResponder(table)
     }
 
     func goBack() {
@@ -548,13 +590,17 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         let generation = requestGeneration
         let directory = currentDirectory
         let hidden = showsHidden
-        let selection = preferredSelection ?? Set(selectedURLs.map(\.path))
+        let revealed = revealedPaths
+        let selection = pendingRevealSelection ?? preferredSelection ?? Set(selectedURLs.map(\.path))
         loading = true
         loadError = nil
         spinner.startAnimation(nil)
         statusLabel.stringValue = "Loading…"
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = Result { try FileService.list(directory, showHidden: hidden) }
+            let result = Result {
+                try FileService.list(directory, showHidden: hidden || !revealed.isEmpty)
+                    .filter { hidden || !$0.isHidden || revealed.contains($0.url.path) }
+            }
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.requestGeneration == generation else { return }
                 self.loading = false
@@ -568,6 +614,14 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
                     self.loadError = error.localizedDescription
                 }
                 self.applyFilter(restoring: selection)
+                if self.pendingRevealSelection != nil {
+                    self.pendingRevealSelection = nil
+                    if let row = self.table.selectedRowIndexes.first {
+                        self.table.scrollRowToVisible(row)
+                    } else if self.loadError == nil {
+                        self.statusLabel.stringValue = "The requested files are no longer in this folder."
+                    }
+                }
                 self.onSelectionChanged?(self)
                 if let url = self.pendingNewURL {
                     self.pendingNewURL = nil

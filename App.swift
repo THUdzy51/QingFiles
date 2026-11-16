@@ -37,6 +37,8 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private var previewPanel: QLPreviewPanel?
     private var userFavorites: [String] = []
     private var remoteWorkspace: RemoteWorkspace?
+    private var settingsWindow: SettingsWindow?
+    private var pendingOpenURLs: [URL] = []
     private var isPreview: Bool { argument("--preview") != nil }
     private var fourPanes = false
     private let worker = DispatchQueue(label: "local.qingfiles.operations", qos: .userInitiated)
@@ -48,13 +50,50 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         buildMenu()
         if !isPreview { userFavorites = UserDefaults.standard.stringArray(forKey: "favorites") ?? [] }
         createWindow()
+        NSApp.servicesProvider = self
         storageRefreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             guard let self, self.window.isVisible else { return }
             self.refreshStorage()
         }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        if !pendingOpenURLs.isEmpty {
+            let urls = pendingOpenURLs
+            pendingOpenURLs.removeAll()
+            revealExternalFiles(urls)
+        }
         if isPreview { schedulePreview() }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard window != nil else {
+            pendingOpenURLs.append(contentsOf: urls)
+            return
+        }
+        revealExternalFiles(urls)
+    }
+
+    @objc func revealInQingFiles(_ pasteboard: NSPasteboard, userData: String?,
+                                error: AutoreleasingUnsafeMutablePointer<NSString?>) {
+        do {
+            let urls = try FileRevealService.fileURLs(from: pasteboard)
+            application(NSApp, open: urls)
+        } catch let serviceError {
+            error.pointee = serviceError.localizedDescription as NSString
+        }
+    }
+
+    private func revealExternalFiles(_ urls: [URL]) {
+        window.deminiaturize(nil)
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        guard window.attachedSheet == nil else {
+            statusLabel.stringValue = "Close the current dialog, then choose Open With QingFiles again."
+            NSSound.beep()
+            return
+        }
+        do { try activePane.revealFiles(urls) }
+        catch { showMessage("Cannot Reveal Files", error.localizedDescription) }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -420,6 +459,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     @objc private func pasteMove(_ sender: Any?) { pasteFiles(forceMove: true) }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(settingsAction) { return true }
         guard !panes.isEmpty else { return false }
         if let keyWindow = NSApp.keyWindow, keyWindow !== window { return false }
         if window.attachedSheet != nil { return false }
@@ -605,6 +645,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         }
         let app = submenu("QingFiles")
         item(app, "About QingFiles", #selector(aboutAction))
+        item(app, "Settings…", #selector(settingsAction), ",")
         app.addItem(.separator())
         let quit = NSMenuItem(title: "Quit QingFiles", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"); quit.target = NSApp; app.addItem(quit)
         let file = submenu("File")
@@ -647,6 +688,11 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     @objc private func aboutAction(_ sender: Any?) {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.3.0"
         showMessage("QingFiles \(version)", "A free native file manager for macOS.\n\nTwo or four panes, path navigation, hidden files, and Quick Look.\n\nBuilt with Swift and AppKit. No third-party dependencies. File operations run locally.\nSource code is available under the MIT License.")
+    }
+
+    @objc private func settingsAction(_ sender: Any?) {
+        if settingsWindow == nil { settingsWindow = SettingsWindow() }
+        settingsWindow?.showWindow(sender)
     }
 
     // Only used by the build's UI smoke test; it renders the real AppKit views.

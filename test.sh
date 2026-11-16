@@ -9,3 +9,6 @@ swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleC
 
 swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleCache" -framework Security "$source_dir/RemoteService.swift" "$source_dir/Tests/RemoteServiceTests.swift" -o "$build_dir/remote-service-tests"
 "$build_dir/remote-service-tests"
+
+swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleCache" "$source_dir/FileService.swift" "$source_dir/WeChatRevealSetting.swift" "$source_dir/Tests/WeChatRevealSettingTests.swift" -o "$build_dir/wechat-reveal-setting-tests"
+"$build_dir/wechat-reveal-setting-tests"

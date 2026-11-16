@@ -9,3 +9,9 @@ swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleC
 
 swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleCache" -framework AppKit "$source_dir/Theme.swift" "$source_dir/FileService.swift" "$source_dir/FilePane.swift" "$source_dir/Tests/PanePathTests.swift" -o "$build_dir/pane-path-tests"
 "$build_dir/pane-path-tests"
+
+swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleCache" -framework AppKit "$source_dir/Theme.swift" "$source_dir/FileService.swift" "$source_dir/FilePane.swift" "$source_dir/Tests/PaneRevealTests.swift" -o "$build_dir/pane-reveal-tests"
+"$build_dir/pane-reveal-tests"
+
+swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleCache" -framework AppKit "$source_dir/FileService.swift" "$source_dir/FileRevealService.swift" "$source_dir/Tests/FileRevealServiceTests.swift" -o "$build_dir/file-reveal-service-tests"
+"$build_dir/file-reveal-service-tests"

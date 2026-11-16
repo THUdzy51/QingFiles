@@ -9,6 +9,9 @@ QingFiles is a small AppKit application compiled directly with `swiftc`. There a
 | `App.swift` | Entry point, menus, main window, sidebar, pane pairing, clipboard intent, operation queue, alerts, persistence, Quick Look controller. |
 | `FilePane.swift` | Independent directory browser: table, navigation history, path/search fields, selection, sorting, context menu and keyboard routing. |
 | `FileService.swift` | Local filesystem metadata and mutations, name validation, collision prevention, selection validation, and per-item results. |
+| `FileRevealService.swift` | Decode local file URLs and legacy filename lists supplied to the macOS service. |
+| `WeChatRevealSetting.swift` | Persist WeChat's viewer override and its restoration record, with verified writes and protection for externally changed preferences. |
+| `SettingsWindow.swift` | Native settings window with an opt-in WeChat reveal switch, asynchronous preference access, and save/error feedback. |
 | `RemoteService.swift` | Validated profiles/paths, process runner/cancellation, FTP MLSD and SFTP listing parsers, curl/OpenSSH adapters, host trust, and Keychain credentials. |
 | `RemoteWorkspace.swift` | Grouped connection form and separate local/remote browsing, transfers, profile saving, fingerprint consent, and SSH Terminal launcher. |
 | `Tools/Askpass.swift` | Authentication-only SSH_ASKPASS helper; never handles host trust. |
@@ -47,6 +50,14 @@ The window delegate participates in the preview panel controller lifecycle. Data
 This is an unsandboxed, ad-hoc-signed desktop application using the current user's permissions. It does not request administrator access. macOS privacy permissions and read-only system locations still apply.
 
 Remote connections are explicitly initiated in a separate workspace using macOS curl/OpenSSH; no analytics is included. See REMOTE_CONNECTIONS.md for password and host-key handling. Opening a file invokes its system default application, which has its own behavior. Symlink and collision checks reduce common mistakes; they are not a transactional filesystem or a defense against every concurrent modification race.
+
+## External file reveal
+
+`build.sh` declares supported document types with the Viewer role and Alternate handler rank. `QingAppDelegate.application(_:open:)` queues requests received before the main window exists. File URLs are validated by `FilePane.revealFiles`, then navigated and selected in the active pane. Selection survives activation refreshes until the current listing finishes. Navigating elsewhere invalidates it. Explicitly revealed hidden items are included individually, and listing URLs retain the caller’s logical directory spelling. Same-folder batches are supported.
+
+The main app delegate provides the registered Reveal in QingFiles service after the window is ready. Its pasteboard decoder accepts modern file URLs and legacy filename arrays. A single ordinary directory opens directly, while documents and packages are selected in their parent. The service title has a Simplified Chinese localization in `Resources/zh-Hans.lproj/ServicesMenu.strings`.
+
+The optional WeChat integration writes only `NSFileViewer` in WeChat's sandbox preference domain through `/usr/bin/defaults`. QingFiles stores the previous optional string before writing the override and verifies the resulting value. Disable restores that backup only while the override still belongs to QingFiles, then clears the backup. The settings controller serializes reads and changes off the main thread. WeChat must be fully restarted to load a changed preference; a temporary command-line override takes precedence until that process exits.
 
 ## UI verification fixtures
 
