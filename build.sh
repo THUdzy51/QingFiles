@@ -39,6 +39,7 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 </dict></plist>
 PLIST
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" "$app_dir/Contents/Info.plist"
+cp -R "$source_dir/Resources/BlankDocuments" "$app_dir/Contents/Resources/"
 cp "$source_dir/PrivacyInfo.xcprivacy" "$app_dir/Contents/Resources/PrivacyInfo.xcprivacy"
 swiftc -swift-version 5 -O -target "${architecture}-apple-macosx13.0" -module-cache-path "$build_dir/ModuleCache" "$source_dir/Tools/Askpass.swift" -o "$app_dir/Contents/MacOS/QingFilesAskpass"
 codesign --force --sign - "$app_dir/Contents/MacOS/QingFilesAskpass"

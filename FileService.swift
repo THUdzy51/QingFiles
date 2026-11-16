@@ -1,5 +1,23 @@
 import Foundation
 
+enum NewItemKind: String, CaseIterable {
+    case folder, docx, xlsx, pptx, pdf, txt, md
+
+    var title: String {
+        switch self {
+        case .folder: return "Folder"
+        case .docx: return "Word Document"
+        case .xlsx: return "Excel Workbook"
+        case .pptx: return "PowerPoint Presentation"
+        case .pdf: return "PDF Document"
+        case .txt: return "Text Document"
+        case .md: return "Markdown Document"
+        }
+    }
+
+    var defaultName: String { self == .folder ? "New Folder" : "New \(title).\(rawValue)" }
+}
+
 struct FileEntry: Sendable {
     let url: URL
     let name: String
@@ -97,6 +115,37 @@ enum FileService {
         return result.sorted {
             if $0.isDirectory != $1.isDirectory { return $0.isDirectory }
             return $0.name.localizedStandardCompare($1.name) == .orderedAscending
+        }
+    }
+
+    /// Exclusive creation protects existing items even when another writer races us.
+    static func createBlank(_ kind: NewItemKind, in parent: URL, resources: URL) throws -> URL {
+        try requireDirectory(parent)
+        let data: Data
+        switch kind {
+        case .folder, .txt, .md: data = Data()
+        default: data = try Data(contentsOf: resources.appendingPathComponent("Blank.\(kind.rawValue)"))
+        }
+        let original = kind.defaultName as NSString
+        var number = 1
+        while true {
+            let name: String
+            if number == 1 { name = kind.defaultName }
+            else if kind == .folder { name = "\(kind.defaultName) (\(number))" }
+            else { name = "\(original.deletingPathExtension) (\(number)).\(kind.rawValue)" }
+            let target = parent.appendingPathComponent(name, isDirectory: kind == .folder)
+            do {
+                if kind == .folder {
+                    try FileManager.default.createDirectory(at: target, withIntermediateDirectories: false)
+                } else {
+                    try data.write(to: target, options: .withoutOverwriting)
+                }
+                return target
+            } catch {
+                let nsError = error as NSError
+                guard nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileWriteFileExistsError else { throw error }
+                number += 1
+            }
         }
     }
 

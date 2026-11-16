@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- Future maintenance and feature work will be recorded here.
+- Add a local right-click New submenu for folders, Word, Excel, PowerPoint, PDF, text, and Markdown documents.
+- Select newly created items for inline naming, with protected file extensions, numbered defaults, and collision checks.
 
 ## 1.3.0 — 2026-11-06
 
