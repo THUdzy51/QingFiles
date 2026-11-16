@@ -42,6 +42,7 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 <string>com.adobe.pdf</string>
 <string>public.text</string>
 <string>public.image</string>
+<string>public.archive</string>
 <string>com.microsoft.word.doc</string>
 <string>com.microsoft.excel.xls</string>
 <string>com.microsoft.powerpoint.ppt</string>
