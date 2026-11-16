@@ -142,7 +142,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         window = FileBrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 1240, height: 760), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         // Blank areas and some controls leave the field editor focused when clicked.
         window.onMouseDown = { [weak self] point in
-            self?.panes.forEach { $0.dismissPathEditor(clickAt: point) }
+            self?.panes.allSatisfy { $0.dismissEditors(clickAt: point) } ?? true
         }
         window.title = "QingFiles"
         window.titleVisibility = .hidden
@@ -208,6 +208,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
             pane.onDirectoryChanged = { [weak self] _ in self?.updateLocations(); self?.saveState() }
             pane.onSelectionChanged = { [weak self] _ in self?.updateStatus() }
             pane.onAction = { [weak self] pane, action in self?.activate(pane); self?.handle(action) }
+            pane.allowsInlineRename = { [weak self] in self?.operationBusy == false }
             panes.append(pane)
             _ = pane.view
             pane.showsHidden = hiddenButton.state == .on

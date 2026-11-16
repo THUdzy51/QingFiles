@@ -2,12 +2,12 @@ import AppKit
 import Foundation
 
 final class FileBrowserWindow: NSWindow {
-    var onMouseDown: ((NSPoint) -> Void)?
+    var onMouseDown: ((NSPoint) -> Bool)?
 
     override func sendEvent(_ event: NSEvent) {
         switch event.type {
         case .leftMouseDown, .rightMouseDown, .otherMouseDown:
-            onMouseDown?(event.locationInWindow)
+            if onMouseDown?(event.locationInWindow) == false { return }
         default:
             break
         }
@@ -106,15 +106,33 @@ private final class BreadcrumbMenuPlacement: NSObject, NSMenuDelegate {
     }
 }
 
+private final class FilenameField: NSTextField {
+    var nameHitWidth: CGFloat { min(bounds.width, attributedStringValue.size().width + 4) }
+
+    override func accessibilityFrame() -> NSRect {
+        var frame = super.accessibilityFrame()
+        // The accessible name target matches the clickable text, not row whitespace.
+        if !isEditable { frame.size.width = nameHitWidth }
+        return frame
+    }
+}
+
 private final class FileListTable: NSTableView {
     weak var pane: FilePane?
+    var didBeginDragging = false
 
     override func mouseDown(with event: NSEvent) {
+        pane?.cancelPendingRename()
         pane?.activate()
+        didBeginDragging = false
         super.mouseDown(with: event)
+        guard !didBeginDragging else { return }
+        pane?.filenameClickEnded(at: convert(event.locationInWindow, from: nil),
+                                 clickCount: event.clickCount, modifiers: event.modifierFlags)
     }
 
     override func rightMouseDown(with event: NSEvent) {
+        pane?.cancelPendingRename()
         pane?.activate()
         let clicked = row(at: convert(event.locationInWindow, from: nil))
         if clicked >= 0 && !selectedRowIndexes.contains(clicked) {
@@ -138,6 +156,7 @@ private final class FileListTable: NSTableView {
     }
 
     override func keyDown(with event: NSEvent) {
+        pane?.cancelPendingRename()
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
         if flags.contains(.command) {
@@ -160,6 +179,11 @@ private final class FileListTable: NSTableView {
         }
         super.keyDown(with: event)
     }
+
+    override func scrollWheel(with event: NSEvent) {
+        pane?.cancelPendingRename()
+        super.scrollWheel(with: event)
+    }
 }
 
 /// An independent browser pane. Filesystem mutations are deliberately delegated to the owner.
@@ -172,9 +196,13 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     var onDirectoryChanged: ((FilePane) -> Void)?
     var onSelectionChanged: ((FilePane) -> Void)?
     var onAction: ((FilePane, String) -> Void)?
+    var allowsInlineRename: (() -> Bool)?
 
     var isActive = false {
-        didSet { if isViewLoaded { updateActiveAppearance() } }
+        didSet {
+            if !isActive { cancelPendingRename() }
+            if isViewLoaded { updateActiveAppearance() }
+        }
     }
     var showsHidden = false {
         didSet { if oldValue != showsHidden && isViewLoaded { refresh() } }
@@ -216,8 +244,11 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     private var revealedPaths: Set<String> = []
     private var pendingRevealSelection: Set<String>?
     private var inlineURL: URL?
-    private var inlineExtension = ""
+    private var inlineEntry: FileEntry?
+    private var inlineCancelled = false
     private weak var inlineField: NSTextField?
+    private var renameTimer: Timer?
+    private var pendingRenameURL: URL?
     private var requestGeneration = 0
     private var loadError: String?
     private var loading = false
@@ -439,7 +470,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     func navigate(to directory: URL, selecting paths: Set<String> = []) {
         guard directory.isFileURL else { return }
         let newURL = directory.standardizedFileURL
-        guard view.window?.makeFirstResponder(nil) != false else { return }
+        guard view.window?.makeFirstResponder(table) != false else { return }
         guard newURL.path != currentDirectory.path else {
             revealedPaths = paths
             pendingRevealSelection = paths.isEmpty ? nil : paths
@@ -452,7 +483,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     }
 
     private func changeDirectory(_ directory: URL, selecting paths: Set<String> = []) {
-        guard view.window?.makeFirstResponder(nil) != false else { return }
+        guard view.window?.makeFirstResponder(table) != false else { return }
         pendingNewURL = nil
         revealedPaths = paths
         pendingRevealSelection = paths.isEmpty ? nil : paths
@@ -488,7 +519,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
             FileManager.default.fileExists(atPath: files[0].path, isDirectory: &isDirectory) &&
             isDirectory.boolValue && !NSWorkspace.shared.isFilePackage(atPath: files[0].path)
         _ = view
-        guard view.window?.makeFirstResponder(nil) != false else {
+        guard view.window?.makeFirstResponder(table) != false else {
             throw FileServiceError.invalid("Finish naming the current item before revealing another file.")
         }
         activate()
@@ -506,7 +537,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
 
     func goBack() {
         activate()
-        guard view.window?.makeFirstResponder(nil) != false else { return }
+        guard view.window?.makeFirstResponder(table) != false else { return }
         guard let previous = backHistory.popLast() else { return }
         forwardHistory.append(currentDirectory)
         changeDirectory(previous)
@@ -514,7 +545,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
 
     func goForward() {
         activate()
-        guard view.window?.makeFirstResponder(nil) != false else { return }
+        guard view.window?.makeFirstResponder(table) != false else { return }
         guard let next = forwardHistory.popLast() else { return }
         backHistory.append(currentDirectory)
         changeDirectory(next)
@@ -526,8 +557,9 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     }
 
     func focusPath() {
+        cancelPendingRename()
         _ = view
-        guard view.window?.makeFirstResponder(nil) != false else { return }
+        guard view.window?.makeFirstResponder(table) != false else { return }
         activate()
         guard closeSearch() else { return }
         breadcrumbMenuRequest = UUID()
@@ -543,9 +575,20 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         window.makeFirstResponder(nil)
     }
 
+    /// End naming even when blank areas or non-focusing controls are clicked.
+    @discardableResult
+    func dismissEditors(clickAt point: NSPoint) -> Bool {
+        cancelPendingRename()
+        dismissPathEditor(clickAt: point)
+        guard let field = inlineField, let window = field.window else { return true }
+        if field.bounds.contains(field.convert(point, from: nil)) { return true }
+        return window.makeFirstResponder(table)
+    }
+
     func focusSearch() {
+        cancelPendingRename()
         _ = view
-        guard view.window?.makeFirstResponder(nil) != false else { return }
+        guard view.window?.makeFirstResponder(table) != false else { return }
         activate()
         breadcrumbMenuRequest = UUID()
         searchExpanded = true
@@ -585,6 +628,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     }
 
     func refresh(selecting preferredSelection: Set<String>? = nil) {
+        cancelPendingRename()
         guard isViewLoaded, inlineURL == nil else { return }
         requestGeneration += 1
         let generation = requestGeneration
@@ -642,17 +686,65 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         guard let row = visibleEntries.firstIndex(where: { $0.url.standardizedFileURL.path == url.standardizedFileURL.path }) else { return }
         table.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
         table.scrollRowToVisible(row)
+        beginInlineRename(at: row)
+    }
+
+    fileprivate func cancelPendingRename() {
+        renameTimer?.invalidate()
+        renameTimer = nil
+        pendingRenameURL = nil
+    }
+
+    /// The name, rather than its icon or the rest of the row, is the edit target.
+    func filenameClickEnded(at point: NSPoint, clickCount: Int, modifiers: NSEvent.ModifierFlags) {
+        cancelPendingRename()
+        let row = table.row(at: point)
+        guard clickCount == 1, modifiers.intersection([.command, .shift, .control, .option]).isEmpty,
+              !loading, inlineURL == nil, visibleEntries.indices.contains(row),
+              table.selectedRowIndexes == IndexSet(integer: row),
+              let cell = table.view(atColumn: 0, row: row, makeIfNecessary: false) as? NSTableCellView,
+              let field = cell.textField as? FilenameField else { return }
+        var nameRect = field.convert(field.bounds, to: table)
+        nameRect.size.width = field.nameHitWidth
+        guard nameRect.insetBy(dx: 0, dy: -3).contains(point) else { return }
+        scheduleInlineRename(visibleEntries[row].url)
+    }
+
+    private func scheduleInlineRename(_ url: URL) {
+        cancelPendingRename()
+        pendingRenameURL = url
+        // Wait for a possible second click before installing the field editor.
+        renameTimer = Timer.scheduledTimer(withTimeInterval: NSEvent.doubleClickInterval, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.renameTimer = nil
+            self.pendingRenameURL = nil
+            guard self.view.window?.firstResponder === self.table,
+                  self.selectedURLs == [url],
+                  let row = self.visibleEntries.firstIndex(where: { $0.url == url }),
+                  self.table.rows(in: self.table.visibleRect).contains(row) else { return }
+            self.beginInlineRename(at: row)
+        }
+    }
+
+    private func beginInlineRename(at row: Int) {
+        cancelPendingRename()
+        guard !loading, inlineURL == nil, allowsInlineRename?() != false,
+              visibleEntries.indices.contains(row) else { return }
         guard isActive, view.window?.isKeyWindow == true,
               let cell = table.view(atColumn: 0, row: row, makeIfNecessary: true) as? NSTableCellView,
               let field = cell.textField else { return }
-        inlineURL = url
-        inlineExtension = visibleEntries[row].isDirectory ? "" : url.pathExtension
+        let entry = visibleEntries[row]
+        inlineURL = entry.url
+        inlineEntry = entry
+        inlineCancelled = false
         inlineField = field
         field.isEditable = true
         field.isSelectable = true
         field.delegate = self
-        field.stringValue = inlineExtension.isEmpty ? url.lastPathComponent : url.deletingPathExtension().lastPathComponent
+        field.stringValue = entry.name
         field.selectText(nil)
+        let stem = entry.isDirectory ? entry.name : entry.url.deletingPathExtension().lastPathComponent
+        (field.currentEditor() as? NSTextView)?.setSelectedRange(NSRange(location: 0, length: stem.utf16.count))
     }
 
     func performAction(_ action: String) {
@@ -994,16 +1086,9 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
 
     func control(_ control: NSControl, textShouldEndEditing fieldEditor: NSText) -> Bool {
         guard let field = inlineField, control === field, let url = inlineURL else { return true }
-        let base = fieldEditor.string
-        // Validate the editable stem before appending its protected extension.
-        guard !base.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              base != ".", base != "..", !base.contains("/"), !base.contains("\0") else {
-            showNamingError("Enter a nonempty name other than . or .., without a slash or null character.")
-            return false
-        }
-        let name = inlineExtension.isEmpty ? base : base + "." + inlineExtension
+        guard !inlineCancelled else { return true }
         do {
-            inlineURL = try FileService.rename(url, to: name)
+            inlineURL = try FileService.rename(url, to: fieldEditor.string)
             return true
         } catch {
             showNamingError(error.localizedDescription)
@@ -1018,7 +1103,10 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         alert.informativeText = message
         alert.beginSheetModal(for: window) { [weak self] _ in
             guard let field = self?.inlineField else { return }
-            field.window?.makeFirstResponder(field)
+            // Refocus the existing editor. Focusing its control would try to end
+            // editing again, potentially committing a previously rejected name.
+            if let editor = field.currentEditor() { field.window?.makeFirstResponder(editor) }
+            else { field.selectText(nil) }
         }
     }
 
@@ -1038,7 +1126,8 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         }
         guard control === inlineField else { return false }
         if commandSelector == #selector(NSResponder.cancelOperation(_:)), let url = inlineURL {
-            textView.string = inlineExtension.isEmpty ? url.lastPathComponent : url.deletingPathExtension().lastPathComponent
+            inlineCancelled = true
+            textView.string = url.lastPathComponent
             view.window?.makeFirstResponder(table)
             return true
         }
@@ -1057,15 +1146,39 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
             updateStatus()
             return
         }
-        guard let field = obj.object as? NSTextField, field === inlineField, let url = inlineURL else { return }
+        guard let field = obj.object as? NSTextField, field === inlineField,
+              let url = inlineURL, let original = inlineEntry else { return }
         field.stringValue = url.lastPathComponent
         field.isEditable = false
         field.isSelectable = false
         field.delegate = nil
         inlineField = nil
         inlineURL = nil
-        inlineExtension = ""
-        refresh(selecting: [url.path])
+        inlineEntry = nil
+        guard url != original.url else { return }
+        let renamed = FileEntry(url: url, name: url.lastPathComponent, isDirectory: original.isDirectory,
+                                isHidden: (try? url.resourceValues(forKeys: [.isHiddenKey]))?.isHidden ?? url.lastPathComponent.hasPrefix("."),
+                                isSymbolicLink: original.isSymbolicLink, size: original.size, modifiedDate: original.modifiedDate)
+        entries = entries.map { $0.url == original.url ? renamed : $0 }
+        visibleEntries = visibleEntries.map { $0.url == original.url ? renamed : $0 }
+        if renamed.isHidden { revealedPaths.insert(url.path) }
+        // Let the click that ended editing select its target before re-sorting rows.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.inlineURL == nil else { return }
+            if self.selectedURLs.contains(url),
+               !url.lastPathComponent.localizedCaseInsensitiveContains(self.searchField.stringValue) {
+                self.searchField.stringValue = ""
+            }
+            let nextRename = self.pendingRenameURL
+            self.applyFilter(restoring: Set(self.selectedURLs.map(\.path)))
+            if self.selectedURLs.contains(url), let row = self.table.selectedRowIndexes.first {
+                self.table.scrollRowToVisible(row)
+            }
+            self.onSelectionChanged?(self)
+            if let nextRename, self.selectedURLs == [nextRename] {
+                self.scheduleInlineRename(nextRename)
+            }
+        }
     }
 
     func controlTextDidBeginEditing(_ obj: Notification) { activate() }
@@ -1073,6 +1186,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     func numberOfRows(in tableView: NSTableView) -> Int { visibleEntries.count }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
+        cancelPendingRename()
         updateStatus()
         onSelectionChanged?(self)
     }
@@ -1089,6 +1203,12 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         return visibleEntries[row].url as NSURL
     }
 
+    func tableView(_ tableView: NSTableView, draggingSession session: NSDraggingSession,
+                   willBeginAt screenPoint: NSPoint, forRowIndexes rowIndexes: IndexSet) {
+        table.didBeginDragging = true
+        cancelPendingRename()
+    }
+
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         guard visibleEntries.indices.contains(row), let column = tableColumn else { return nil }
         let entry = visibleEntries[row]
@@ -1103,7 +1223,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
                 let icon = NSImageView()
                 icon.imageScaling = .scaleProportionallyDown
                 icon.translatesAutoresizingMaskIntoConstraints = false
-                let label = NSTextField(labelWithString: "")
+                let label = FilenameField(labelWithString: "")
                 label.font = NSFont.systemFont(ofSize: 12)
                 label.lineBreakMode = .byTruncatingMiddle
                 label.translatesAutoresizingMaskIntoConstraints = false

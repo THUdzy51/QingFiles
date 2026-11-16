@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Rename existing items inline with a single filename click. Select only the filename stem while keeping its extension visible; retain icon selection, modifier clicks, dragging, and double-click opening. Return or an outside click commits, Escape cancels, and validation failures allow retry. Keep renamed selections visible after sorting and filtering.
+
 - Add an opt-in Settings switch for routing WeChat's Show in Finder action to QingFiles across normal launches. Switching off restores the saved per-app viewer preference. WeChat must be fully restarted after either change.
 
 - Add QingFiles to Open With for PDF, Office, text, image files, and folders, plus a Reveal in QingFiles service for files and folders. Launch or activate the browser, reveal original files in the active pane, and select them after the folder loads. A single ordinary folder opens directly. External reveal clears search, supports same-folder multiple selection, and retains logical symlink paths.
@@ -12,7 +14,7 @@
 - Reveal current-folder search on demand with a button or Command-F, adapt it to narrow/wide panes, and reset it on Escape or folder changes.
 
 - Add a local right-click New submenu for folders, Word, Excel, PowerPoint, PDF, text, and Markdown documents.
-- Select newly created items for inline naming, with protected file extensions, numbered defaults, and collision checks.
+- Select newly created items for inline naming, with stem-only initial selection, numbered defaults, and collision checks.
 
 ## 1.3.0 — 2026-11-06
 
