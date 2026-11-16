@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Compact local pane headers by removing visible positional labels, retaining a blue active-folder title, and placing navigation controls beside the path.
+- Reveal current-folder search on demand with a button or Command-F, adapt it to narrow/wide panes, and reset it on Escape or folder changes.
+
 - Add a local right-click New submenu for folders, Word, Excel, PowerPoint, PDF, text, and Markdown documents.
 - Select newly created items for inline naming, with protected file extensions, numbered defaults, and collision checks.
 

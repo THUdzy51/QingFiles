@@ -92,9 +92,12 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     private let accent = QingTheme.accent
     private let table = FileListTable()
     private let folderLabel = NSTextField(labelWithString: "")
-    private let paneLabel = NSTextField(labelWithString: "")
     private let pathField = NSTextField(string: "")
     private let searchField = NSSearchField()
+    private let pathContent = NSStackView()
+    private var searchButton: NSButton!
+    private var searchWidth: NSLayoutConstraint!
+    private var searchExpanded = false
     private let statusLabel = NSTextField(labelWithString: "Loading…")
     private let emptyLabel = NSTextField(wrappingLabelWithString: "")
     private let spinner = NSProgressIndicator()
@@ -136,29 +139,17 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         root.onActivate = { [weak self] in self?.activate() }
         view = root
 
-        paneLabel.stringValue = paneTitle
-        paneLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-        paneLabel.textColor = .secondaryLabelColor
-        paneLabel.setContentHuggingPriority(.required, for: .horizontal)
+        root.setAccessibilityLabel("\(paneTitle) file pane")
         folderLabel.font = NSFont.systemFont(ofSize: 15, weight: .semibold)
         folderLabel.lineBreakMode = .byTruncatingMiddle
         folderLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let titleStack = NSStackView(views: [paneLabel, folderLabel])
-        titleStack.orientation = .vertical
-        titleStack.alignment = .leading
-        titleStack.spacing = 3
         backButton = iconButton("chevron.left", tooltip: "Back", action: #selector(backClicked))
         forwardButton = iconButton("chevron.right", tooltip: "Forward", action: #selector(forwardClicked))
         let upButton = iconButton("arrow.up", tooltip: "Parent Folder", action: #selector(upClicked))
         let refreshButton = iconButton("arrow.clockwise", tooltip: "Refresh", action: #selector(refreshClicked))
         let navigation = NSStackView(views: [backButton, forwardButton, upButton, refreshButton])
         navigation.spacing = 1
-        let header = NSStackView(views: [titleStack, navigation])
-        header.alignment = .centerY
-        header.spacing = 6
-        titleStack.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
         pathField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         pathField.lineBreakMode = .byTruncatingMiddle
         pathField.usesSingleLineMode = true
@@ -180,6 +171,24 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         searchField.target = self
         searchField.action = #selector(searchChanged)
         searchField.delegate = self
+
+        pathField.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        pathField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        pathContent.orientation = .horizontal
+        pathContent.spacing = 6
+        pathContent.detachesHiddenViews = true
+        pathContent.addArrangedSubview(pathField)
+        pathContent.addArrangedSubview(searchField)
+        searchField.isHidden = true
+        searchField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        searchWidth = searchField.widthAnchor.constraint(equalToConstant: 200)
+        searchWidth.priority = .defaultHigh
+        searchButton = iconButton("magnifyingglass", tooltip: "Search Current Folder · ⌘F", action: #selector(toggleSearch))
+        let navigationRow = NSStackView(views: [navigation, pathContent, searchButton])
+        navigationRow.orientation = .horizontal
+        navigationRow.alignment = .centerY
+        navigationRow.spacing = 6
+        pathContent.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         table.pane = self
         table.dataSource = self
@@ -252,24 +261,22 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
 
         let divider = NSBox()
         divider.boxType = .separator
-        for subview in [header, pathField, searchField, divider, scroll, emptyLabel, footer] {
+        for subview in [folderLabel, navigationRow, divider, scroll, emptyLabel, footer] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(subview)
         }
         NSLayoutConstraint.activate([
-            header.topAnchor.constraint(equalTo: root.topAnchor, constant: 13),
-            header.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
-            header.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -12),
-            header.heightAnchor.constraint(equalToConstant: 36),
-            pathField.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 9),
-            pathField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 12),
-            pathField.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -12),
+            folderLabel.topAnchor.constraint(equalTo: root.topAnchor, constant: 12),
+            folderLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            folderLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -12),
+            folderLabel.heightAnchor.constraint(equalToConstant: 20),
+            navigationRow.topAnchor.constraint(equalTo: folderLabel.bottomAnchor, constant: 8),
+            navigationRow.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 12),
+            navigationRow.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -12),
+            navigationRow.heightAnchor.constraint(equalToConstant: 27),
             pathField.heightAnchor.constraint(equalToConstant: 27),
-            searchField.topAnchor.constraint(equalTo: pathField.bottomAnchor, constant: 8),
-            searchField.leadingAnchor.constraint(equalTo: pathField.leadingAnchor),
-            searchField.trailingAnchor.constraint(equalTo: pathField.trailingAnchor),
-            searchField.heightAnchor.constraint(equalToConstant: 25),
-            divider.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 10),
+            searchField.heightAnchor.constraint(equalToConstant: 27),
+            divider.topAnchor.constraint(equalTo: navigationRow.bottomAnchor, constant: 10),
             divider.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             divider.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             scroll.topAnchor.constraint(equalTo: divider.bottomAnchor),
@@ -297,6 +304,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        updateSearchLayout()
         // The name column absorbs width changes; date and size remain readable in four-pane mode.
         if let name = table.tableColumns.first {
             let others = table.tableColumns.dropFirst().reduce(CGFloat(0)) { $0 + $1.width + 8 }
@@ -321,6 +329,8 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         currentDirectory = directory
         _ = view
         searchField.stringValue = ""
+        searchExpanded = false
+        updateSearchLayout()
         table.deselectAll(nil)
         entries.removeAll()
         visibleEntries.removeAll()
@@ -353,15 +363,47 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     func focusPath() {
         _ = view
         activate()
+        guard closeSearch() else { return }
         view.window?.makeFirstResponder(pathField)
         pathField.selectText(nil)
     }
 
     func focusSearch() {
         _ = view
+        guard view.window?.makeFirstResponder(nil) != false else { return }
         activate()
-        view.window?.makeFirstResponder(searchField)
+        searchExpanded = true
+        updateSearchLayout()
         searchField.selectText(nil)
+    }
+
+    @objc private func toggleSearch() {
+        if searchExpanded { _ = closeSearch() }
+        else { focusSearch() }
+    }
+
+    @discardableResult
+    private func closeSearch() -> Bool {
+        guard searchExpanded else { return true }
+        guard view.window?.makeFirstResponder(table) != false else { return false }
+        activate()
+        searchField.stringValue = ""
+        searchExpanded = false
+        updateSearchLayout()
+        applyFilter(restoring: Set(selectedURLs.map(\.path)))
+        return true
+    }
+
+    private func updateSearchLayout() {
+        guard searchButton != nil else { return }
+        let sharesPath = searchExpanded && view.bounds.width >= 640
+        pathField.isHidden = searchExpanded && !sharesPath
+        searchField.isHidden = !searchExpanded
+        searchWidth.isActive = sharesPath
+        let symbol = searchExpanded ? "xmark" : "magnifyingglass"
+        let description = searchExpanded ? "Close Search" : "Search Current Folder"
+        searchButton.image = NSImage(systemSymbolName: symbol, accessibilityDescription: description)
+        searchButton.toolTip = searchExpanded ? "Clear and close search · Esc" : "Search Current Folder · ⌘F"
     }
 
     func refresh(selecting preferredSelection: Set<String>? = nil) {
@@ -489,7 +531,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         view.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
         view.layer?.borderColor = (isActive ? accent.withAlphaComponent(0.7) : NSColor.separatorColor.withAlphaComponent(0.45)).cgColor
         view.layer?.borderWidth = 0
-        paneLabel.textColor = isActive ? accent : .secondaryLabelColor
+        folderLabel.textColor = isActive ? accent : .labelColor
     }
 
     private func updateStatus() {
@@ -598,6 +640,9 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if control === searchField, commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            return closeSearch()
+        }
         guard control === inlineField else { return false }
         if commandSelector == #selector(NSResponder.cancelOperation(_:)), let url = inlineURL {
             textView.string = inlineExtension.isEmpty ? url.lastPathComponent : url.deletingPathExtension().lastPathComponent
