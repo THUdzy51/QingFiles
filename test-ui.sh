@@ -24,6 +24,11 @@ swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleC
     "$source_dir/Tests/PaneDropTests.swift" -o "$build_dir/pane-drop-tests"
 "$build_dir/pane-drop-tests"
 
+swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleCache" -framework AppKit \
+    "$source_dir/Theme.swift" "$source_dir/FileService.swift" "$source_dir/FilePane.swift" \
+    "$source_dir/Tests/PaneOpenWithTests.swift" -o "$build_dir/pane-open-with-tests"
+"$build_dir/pane-open-with-tests"
+
 swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleCache" \
     -I "$source_dir/ArchiveSupport" -framework AppKit -framework QuickLookUI -framework QuickLookThumbnailing \
     "$source_dir/Theme.swift" "$source_dir/FileService.swift" "$source_dir/FilePane.swift" \

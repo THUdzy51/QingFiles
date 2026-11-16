@@ -18,6 +18,10 @@ Archive preview supports ZIP, 7z, RAR, TAR (including gzip, bzip2, xz, and lzip)
 
 Click **Two Folders** to browse both folders independently. Click **Preview Pane** to resume following the left selection.
 
+## Open a local file with another app
+
+Right-click a file in a local file list and choose **Open With**. The menu lists compatible applications, with the current default marked. When several files are selected, the list contains apps that support all of them. Choose **Other…** to pick an app from disk. This opens the selected files once using the chosen application and keeps the existing default.
+
 ## Drag files between panes
 
 With both folder panes visible, drag one or more selected items onto the destination pane’s file list to move them to that pane’s folder. Drop directly onto a folder row to move into that folder. Hold Option while dropping to copy. QingFiles reports a conflict if the destination already contains an item of the same name.

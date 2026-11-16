@@ -32,6 +32,7 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 | Hidden items | Toggle dotfiles and hidden-flag items with `⌘⇧.`. |
 | Search and sorting | Click the search button or press `⌘F` to filter names in the current folder; sort by name, modified date, or size. Folders stay first. |
 | Quick Look | Select a file and press Space for the system preview. |
+| Open With | Right-click a local file to open it in a compatible app or select **Other…**. |
 | Folder and archive previews | Expand a directory tree or browse images and videos in the right pane. Open ZIP, 7z, RAR, TAR, and other supported archives without unpacking them into your folders. |
 | File operations | Copy, cut, paste, drag to move across folder panes, Option-drag to copy, create folders, rename, and move to Trash. |
 | Inline rename | Single-click a filename to edit it in place, with its stem selected and extension visible. Return commits; Escape cancels. Icon clicks select and double-clicks open. |
