@@ -25,7 +25,10 @@ struct PanePathTests {
         let pane = FilePane(directory: nested, title: "Left")
         pane.onActivate = { $0.isActive = true }
         let window = FileBrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 475, height: 250), styleMask: [.titled], backing: .buffered, defer: false)
-        window.onMouseDown = { [weak pane] point in pane?.dismissPathEditor(clickAt: point) }
+        window.onMouseDown = { [weak pane] point in
+            pane?.dismissPathEditor(clickAt: point)
+            return true
+        }
         window.isReleasedWhenClosed = false
         window.contentView = pane.view
         pane.view.frame = NSRect(x: 0, y: 0, width: 475, height: 250)

@@ -33,6 +33,7 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 | Search and sorting | Click the search button or press `⌘F` to filter names in the current folder; sort by name, modified date, or size. Folders stay first. |
 | Quick Look | Select a file and press Space for the system preview. |
 | File operations | Copy, cut, paste, copy/move across panes, create folders, rename, and move to Trash. |
+| Inline rename | Single-click a filename to edit it in place, with its stem selected and extension visible. Return commits; Escape cancels. Icon clicks select and double-clicks open. |
 | New documents | Right-click New to create a folder or blank Word, Excel, PowerPoint, PDF, text, or Markdown file and name it inline. |
 | Favorites | Save frequently used folders; right-click a custom favorite to remove it. |
 | Persistent workspace | Remember pane locations, hidden-item visibility, and layout between launches. |
@@ -99,7 +100,9 @@ Cross-compilation does not constitute runtime validation on the other architectu
 
 ## Tests and validation
 
-On a Mac with a logged-in desktop session, `./test-ui.sh` runs 16 AppKit header checks, 23 path interaction checks, 23 external reveal checks, and 5 service pasteboard checks. These cover narrow/wide layouts, search, breadcrumbs, path editing, history, asynchronous selection, scrolling, folder opening, hidden files, symlink paths, and stale listing protection.
+On a Mac with a logged-in desktop session, `./test-ui.sh` runs 16 AppKit header checks, 23 path interaction checks, 23 external reveal checks, 5 service pasteboard checks, and 42 inline rename checks. These cover narrow/wide layouts, search, breadcrumbs, path editing, history, asynchronous selection, scrolling, folder opening, hidden files, symlink paths, stale listing protection, filename hit targets, stem selection, rename validation/retry, and selection after sorting or filtering.
+
+Inline renaming was also checked in the installed app on macOS 15.6 (Apple silicon): filename clicks, stem replacement with a visible extension, Return, Escape, outside-header clicks, folder double-clicks, and two/four-pane editing. Native AppKit render checks cover a fixed 475-point pane at two heights. Outbound dragging still needs manual acceptance for this change.
 
 The 1.2 development checks include 36 local filesystem checks and 14 remote unit checks. A separate loopback integration run passes 31 remote checks (including those 14 units), exercising FTP, FTPS, and SFTP. The native local and connection windows have also been rendered and inspected. See [Remote connections](docs/REMOTE_CONNECTIONS.md) to reproduce the network tests.
 
