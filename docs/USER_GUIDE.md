@@ -5,10 +5,22 @@
 1. Open QingFiles and click a pane to activate it. The active pane has a blue caption and keyboard focus.
 2. Click **Root /** in the sidebar to browse the filesystem's top level.
 3. Click **Hidden** to show dotfiles such as `.ssh` and `.config`.
-4. Open the source folder in one pane and the destination in its paired pane.
+4. Click **Two Folders**, then open the source folder in one pane and the destination in its paired pane.
 5. Select items in the source, verify the destination, then choose **Copy Across** or **Move**.
 
 Each pane's search filters names only within its current folder. It does not recursively search child folders. Double-click folders to enter them and files to open them in their default application. Application and document bundles open through macOS instead of being treated as ordinary folders.
+
+## Right-pane preview
+
+Select a file in the left pane to preview it on the right. For a folder or archive, choose **Structure** below the selected item’s name to expand its directory tree, or **Media** to list images and videos in its subfolders. The list fills the pane until you select a file. The preview then appears below the list, and images fit the available space proportionally. Press Escape while the preview list has focus to clear the selection and regain the full list. Quick Look determines which media codecs can play. Press Space in the main file list to open a separate system preview.
+
+Archive preview supports ZIP, 7z, RAR, TAR (including gzip, bzip2, xz, and lzip), CAB, CPIO, XAR, ISO, LHA, Unix ar, and single-file gzip, bzip2, xz, LZMA, lzip, and Unix compress streams, subject to the system archive reader. Password-protected entries cannot be opened. The pane shows up to 10,000 entries per selection. For an archive, opening a file previews just that entry in a temporary location, up to 512 MiB.
+
+Click **Two Folders** to browse both folders independently. Click **Preview Pane** to resume following the left selection.
+
+## Drag files between panes
+
+With both folder panes visible, drag one or more selected items onto the destination pane’s file list to move them to that pane’s folder. Drop directly onto a folder row to move into that folder. Hold Option while dropping to copy. QingFiles reports a conflict if the destination already contains an item of the same name.
 
 ## Remote servers
 

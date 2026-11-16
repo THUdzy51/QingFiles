@@ -18,3 +18,15 @@ swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleC
 
 swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleCache" -framework AppKit "$source_dir/Theme.swift" "$source_dir/FileService.swift" "$source_dir/FilePane.swift" "$source_dir/Tests/PaneRenameTests.swift" -o "$build_dir/pane-rename-tests"
 "$build_dir/pane-rename-tests"
+
+swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleCache" -framework AppKit \
+    "$source_dir/Theme.swift" "$source_dir/FileService.swift" "$source_dir/FilePane.swift" \
+    "$source_dir/Tests/PaneDropTests.swift" -o "$build_dir/pane-drop-tests"
+"$build_dir/pane-drop-tests"
+
+swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleCache" \
+    -I "$source_dir/ArchiveSupport" -framework AppKit -framework QuickLookUI -framework QuickLookThumbnailing \
+    "$source_dir/Theme.swift" "$source_dir/FileService.swift" "$source_dir/FilePane.swift" \
+    "$source_dir/ArchivePreview.swift" "$source_dir/SelectionPreviewPane.swift" \
+    "$source_dir/Tests/SelectionPreviewLayoutTests.swift" -o "$build_dir/selection-preview-layout-tests"
+"$build_dir/selection-preview-layout-tests"

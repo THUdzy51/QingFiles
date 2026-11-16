@@ -1,0 +1,5 @@
+module QingArchive [system] {
+    header "ArchiveSupport.h"
+    link "archive"
+    export *
+}

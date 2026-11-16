@@ -22,6 +22,10 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private var panes: [FilePane] = []
     private var activeIndex = 0
     private var layoutSwitch: NSSegmentedControl!
+    private var paneModeButton: NSButton!
+    private var copyAcrossButton: NSButton!
+    private var moveAcrossButton: NSButton!
+    private let selectionPreview = SelectionPreviewPane()
     private var hiddenButton: NSButton!
     private var statusLabel = QingTheme.label("Ready", size: 11, color: .secondaryLabelColor)
     private var activityIndicator = NSProgressIndicator()
@@ -41,6 +45,8 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private var pendingOpenURLs: [URL] = []
     private var isPreview: Bool { argument("--preview") != nil }
     private var fourPanes = false
+    private var rightPaneShowsPreview = true
+    private var showsSelectionPreview: Bool { !fourPanes && rightPaneShowsPreview }
     private let worker = DispatchQueue(label: "local.qingfiles.operations", qos: .userInitiated)
     private var activePane: FilePane { panes[activeIndex] }
     private var otherPane: FilePane { panes[activeIndex ^ 1] }
@@ -98,6 +104,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         window.makeKeyAndOrderFront(nil)
+        if let pane = panes.first { updateSelectionPreview(from: pane) }
         return true
     }
 
@@ -111,11 +118,15 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
             return .terminateCancel
         }
         saveState()
+        selectionPreview.show(nil, includeHidden: false)
         storageRefreshTimer?.invalidate()
         return .terminateNow
     }
 
-    func windowWillClose(_ notification: Notification) { saveState() }
+    func windowWillClose(_ notification: Notification) {
+        selectionPreview.show(nil, includeHidden: false)
+        saveState()
+    }
 
     func windowDidResignKey(_ notification: Notification) {
         panes.forEach { $0.dismissPathEditor() }
@@ -205,10 +216,24 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
             let initial = FileManager.default.fileExists(atPath: candidate.path, isDirectory: &isDirectory) && isDirectory.boolValue ? candidate : home
             let pane = FilePane(directory: initial, title: ["Left", "Right", "Bottom Left", "Bottom Right"][index])
             pane.onActivate = { [weak self] selected in self?.activate(selected) }
-            pane.onDirectoryChanged = { [weak self] _ in self?.updateLocations(); self?.saveState() }
-            pane.onSelectionChanged = { [weak self] _ in self?.updateStatus() }
+            pane.onDirectoryChanged = { [weak self] pane in
+                self?.updateLocations()
+                self?.saveState()
+                self?.updateSelectionPreview(from: pane)
+            }
+            pane.onSelectionChanged = { [weak self] pane in
+                self?.updateStatus()
+                self?.updateSelectionPreview(from: pane)
+            }
             pane.onAction = { [weak self] pane, action in self?.activate(pane); self?.handle(action) }
             pane.allowsInlineRename = { [weak self] in self?.operationBusy == false }
+            pane.allowsFileDrop = { [weak self] in
+                guard let self else { return false }
+                return !self.operationBusy && self.window.attachedSheet == nil
+            }
+            pane.onFileDrop = { [weak self] sources, destination, mode in
+                self?.transfer(sources, to: destination, mode: mode)
+            }
             panes.append(pane)
             _ = pane.view
             pane.showsHidden = hiddenButton.state == .on
@@ -235,11 +260,10 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         layoutSwitch = NSSegmentedControl(labels: ["2 Panes", "4 Panes"], trackingMode: .selectOne, target: self, action: #selector(changeLayout))
         layoutSwitch.segmentStyle = .rounded
         layoutSwitch.setWidth(67, forSegment: 0); layoutSwitch.setWidth(67, forSegment: 1)
-        let newFolder = QingTheme.button("New Folder", symbol: "folder.badge.plus", target: self, action: #selector(newFolderAction))
-        let copyAcross = QingTheme.button("Copy Across", symbol: "doc.on.doc", target: self, action: #selector(copyOtherAction))
-        let moveAcross = QingTheme.button("Move", symbol: "arrow.right.square", target: self, action: #selector(moveOtherAction))
-        moveAcross.toolTip = "Move selected items to the folder in the paired pane"
-        let preview = QingTheme.button("Preview", symbol: "eye", target: self, action: #selector(previewAction))
+        paneModeButton = QingTheme.button("Two Folders", symbol: "folder", target: self, action: #selector(togglePaneMode))
+        copyAcrossButton = QingTheme.button("Copy Across", symbol: "doc.on.doc", target: self, action: #selector(copyOtherAction))
+        moveAcrossButton = QingTheme.button("Move", symbol: "arrow.right.square", target: self, action: #selector(moveOtherAction))
+        moveAcrossButton.toolTip = "Move selected items to the folder in the paired pane"
         hiddenButton = QingTheme.button("Hidden", symbol: "eye.slash", target: self, action: #selector(toggleHidden))
         hiddenButton.setButtonType(.toggle)
         hiddenButton.state = !isPreview && UserDefaults.standard.bool(forKey: "showHidden") ? .on : .off
@@ -248,7 +272,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         connect.contentTintColor = QingTheme.accent
         let refresh = QingTheme.button("", symbol: "arrow.clockwise", target: self, action: #selector(refreshAction))
         refresh.toolTip = "Refresh the current folder · ⌘R"
-        let toolbar = NSStackView(views: [layoutSwitch, copyAcross, moveAcross, newFolder, preview, hiddenButton, connect, refresh])
+        let toolbar = NSStackView(views: [layoutSwitch, paneModeButton, copyAcrossButton, moveAcrossButton, hiddenButton, connect, refresh])
         toolbar.spacing = 8
         header.addSubview(toolbar)
         brand.translatesAutoresizingMaskIntoConstraints = false
@@ -394,19 +418,30 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
 
     private func rebuildPanes() {
         panes.forEach { $0.view.removeFromSuperview() }
+        selectionPreview.removeFromSuperview()
         paneContainer.arrangedSubviews.forEach { paneContainer.removeArrangedSubview($0); $0.removeFromSuperview() }
         for rowIndex in 0..<(fourPanes ? 2 : 1) {
-            let row = NSStackView(views: [panes[rowIndex * 2].view, panes[rowIndex * 2 + 1].view])
+            let right = showsSelectionPreview ? selectionPreview : panes[rowIndex * 2 + 1].view
+            let row = NSStackView(views: [panes[rowIndex * 2].view, right])
             row.orientation = .horizontal; row.distribution = .fillEqually; row.alignment = .height; row.spacing = 1
             paneContainer.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: paneContainer.widthAnchor).isActive = true
         }
-        if !fourPanes && activeIndex >= 2 { activeIndex = 0 }
+        if showsSelectionPreview || (!fourPanes && activeIndex >= 2) { activeIndex = 0 }
         activate(panes[activeIndex])
+        paneModeButton.isHidden = fourPanes
+        paneModeButton.title = showsSelectionPreview ? "Two Folders" : "Preview Pane"
+        paneModeButton.image = QingTheme.symbol(showsSelectionPreview ? "folder" : "eye")
+        paneModeButton.toolTip = showsSelectionPreview ? "Browse folders in both panes" : "Show a preview of the left pane’s selection"
+        copyAcrossButton.isEnabled = !showsSelectionPreview
+        moveAcrossButton.isEnabled = !showsSelectionPreview
+        if showsSelectionPreview { updateSelectionPreview(from: panes[0]) }
+        else { selectionPreview.show(nil, includeHidden: false) }
     }
 
     private func activate(_ pane: FilePane) {
         guard let index = panes.firstIndex(where: { $0 === pane }) else { return }
+        guard !showsSelectionPreview || index == 0 else { return }
         activeIndex = index
         for (i, pane) in panes.enumerated() { pane.isActive = i == index }
         updateLocations(); updateStatus()
@@ -422,7 +457,13 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private func updateStatus() {
         guard !panes.isEmpty, !operationBusy else { return }
         let count = activePane.selectedURLs.count
-        statusLabel.stringValue = count > 0 ? "\(count) selected · Paired destination: \(otherPane.currentDirectory.lastPathComponent)" : "Local workspace · Click a pane to start browsing"
+        if showsSelectionPreview { statusLabel.stringValue = count > 0 ? "\(count) selected" : "Local workspace" }
+        else { statusLabel.stringValue = count > 0 ? "\(count) selected · Paired destination: \(otherPane.currentDirectory.lastPathComponent)" : "Local workspace · Click a pane to start browsing" }
+    }
+
+    private func updateSelectionPreview(from pane: FilePane, refresh: Bool = false) {
+        guard showsSelectionPreview, pane === panes.first else { return }
+        selectionPreview.show(pane.selectedURLs.first, includeHidden: pane.showsHidden, refresh: refresh)
     }
 
     @objc private func connectionsAction(_ sender: Any?) {
@@ -433,11 +474,20 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
 
     @objc private func sidebarClick(_ sender: SidebarButton) { if let url = sender.location { activePane.navigate(to: url) } }
     @objc private func changeLayout(_ sender: Any?) { fourPanes = layoutSwitch.selectedSegment == 1; rebuildPanes(); saveState() }
+    @objc private func togglePaneMode(_ sender: Any?) {
+        guard !fourPanes, window.makeFirstResponder(nil) else { return }
+        rightPaneShowsPreview.toggle()
+        rebuildPanes()
+    }
     @objc private func toggleHidden(_ sender: Any?) {
         if !(sender is NSButton) { hiddenButton.state = hiddenButton.state == .on ? .off : .on }
         panes.forEach { $0.showsHidden = hiddenButton.state == .on }; saveState()
     }
-    @objc private func refreshAction(_ sender: Any?) { activePane.refresh(); refreshStorage() }
+    @objc private func refreshAction(_ sender: Any?) {
+        updateSelectionPreview(from: activePane, refresh: true)
+        activePane.refresh()
+        refreshStorage()
+    }
     @objc private func focusPathAction(_ sender: Any?) { activePane.focusPath() }
     @objc private func focusSearchAction(_ sender: Any?) { activePane.focusSearch() }
     @objc private func rootAction(_ sender: Any?) { activePane.navigate(to: URL(fileURLWithPath: "/")) }
@@ -464,6 +514,8 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         guard !panes.isEmpty else { return false }
         if let keyWindow = NSApp.keyWindow, keyWindow !== window { return false }
         if window.attachedSheet != nil { return false }
+        if menuItem.action == #selector(togglePaneMode) { return !fourPanes }
+        if showsSelectionPreview, menuItem.action == #selector(copyOtherAction) || menuItem.action == #selector(moveOtherAction) { return false }
         let fileActions: [Selector] = [#selector(trashAction), #selector(renameAction), #selector(pasteMove), #selector(copyOtherAction), #selector(moveOtherAction), #selector(openAction), #selector(previewAction)]
         if let editor = window.firstResponder as? NSTextView, editor.isFieldEditor,
            let action = menuItem.action, fileActions.contains(action) { return false }
@@ -498,6 +550,10 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         case "paste": pasteFiles(forceMove: false)
         case "pasteMove": pasteFiles(forceMove: true)
         case "copyToOther", "moveToOther":
+            guard !showsSelectionPreview else {
+                statusLabel.stringValue = "Choose Two Folders to show the destination pane."
+                return
+            }
             guard !selected.isEmpty else { NSSound.beep(); return }
             transfer(selected, to: otherPane.currentDirectory, mode: action == "copyToOther" ? .copy : .move)
         case "copyPath":
@@ -667,6 +723,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         edit.addItem(.separator())
         item(edit, "Copy Path", #selector(copyPathAction), "c", [.command, .shift])
         let view = submenu("View")
+        item(view, "Toggle Right Preview Pane", #selector(togglePaneMode))
         item(view, "Show/Hide Hidden Items", #selector(toggleHidden), ".", [.command, .shift])
         item(view, "Refresh", #selector(refreshAction), "r")
         item(view, "Search Current Folder", #selector(focusSearchAction), "f")

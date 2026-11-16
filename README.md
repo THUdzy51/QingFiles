@@ -23,7 +23,7 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 | Feature | Behavior |
 |---|---|
 | Remote connections | FTP, explicit FTPS, SFTP uploads/downloads, saved profiles, optional Keychain passwords, and an SSH Terminal launcher. |
-| Two or four panes | Each pane has its own folder, navigation history, search, and selection. |
+| Two or four panes | The right pane follows the left selection by default in two-pane mode. Use **Two Folders** for independent folder browsing on both sides. |
 | Storage capacity | The main window shows the active folder's disk name, used space, total capacity, available space, and a usage bar. |
 | Paths | Click a breadcrumb to navigate, or click the path bar’s empty space or press `⌘L` to select and edit the absolute path. Click a segment’s arrow to choose a subfolder, or use the `…` menu to reach omitted ancestors. |
 | External files and folders | Use Open With QingFiles for documents, or Services → Reveal in QingFiles for files and folders. Files are selected in their original folder; a single folder opens directly in the active pane. |
@@ -32,7 +32,8 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 | Hidden items | Toggle dotfiles and hidden-flag items with `⌘⇧.`. |
 | Search and sorting | Click the search button or press `⌘F` to filter names in the current folder; sort by name, modified date, or size. Folders stay first. |
 | Quick Look | Select a file and press Space for the system preview. |
-| File operations | Copy, cut, paste, copy/move across panes, create folders, rename, and move to Trash. |
+| Folder and archive previews | Expand a directory tree or browse images and videos in the right pane. Open ZIP, 7z, RAR, TAR, and other supported archives without unpacking them into your folders. |
+| File operations | Copy, cut, paste, drag to move across folder panes, Option-drag to copy, create folders, rename, and move to Trash. |
 | Inline rename | Single-click a filename to edit it in place, with its stem selected and extension visible. Return commits; Escape cancels. Icon clicks select and double-clicks open. |
 | New documents | Right-click New to create a folder or blank Word, Excel, PowerPoint, PDF, text, or Markdown file and name it inline. |
 | Favorites | Save frequently used folders; right-click a custom favorite to remove it. |
@@ -118,7 +119,7 @@ GitHub Actions runs the test suite and builds both target architectures on macOS
 
 ## Current limitations and roadmap
 
-Not implemented: cloud providers, archive browsing, tabs, a folder tree, batch rename, recursive disk search, inbound drag and drop, or app-level undo. Remote transfers support cancellation and regular files only; local file transfers still do not have cancellation. Remote upload preflight checks are not atomic against concurrent server writers. Outbound dragging supports copying.
+Not implemented: cloud providers, tabs, batch rename, recursive disk search, drops from external apps, or app-level undo. Remote transfers support cancellation and regular files only; local file transfers still do not have cancellation. Remote upload preflight checks are not atomic against concurrent server writers. Outbound dragging supports copying.
 
 See [ROADMAP.md](ROADMAP.md) for proposed work. Roadmap entries are ideas, not delivery commitments.
 
