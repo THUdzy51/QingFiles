@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import UniformTypeIdentifiers
 
 final class FileBrowserWindow: NSWindow {
     var onMouseDown: ((NSPoint) -> Bool)?
@@ -187,7 +188,12 @@ private final class FileListTable: NSTableView {
 }
 
 /// An independent browser pane. Filesystem mutations are deliberately delegated to the owner.
-final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate, NSSearchFieldDelegate {
+final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate, NSSearchFieldDelegate, NSMenuDelegate {
+    private struct OpenWithChoice {
+        let files: [URL]
+        let application: URL?
+    }
+
     private(set) var currentDirectory: URL
     var isLoading: Bool { loading }
     let paneTitle: String
@@ -218,6 +224,12 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
 
     private let accent = QingTheme.accent
     private let table = FileListTable()
+    private let openWithItem = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
+    private lazy var otherApplicationItem: NSMenuItem = {
+        let item = NSMenuItem(title: "Other…", action: #selector(openWith(_:)), keyEquivalent: "")
+        item.target = self
+        return item
+    }()
     private let folderLabel = NSTextField(labelWithString: "")
     private let pathField = NSTextField(string: "")
     private let breadcrumbStack = NSStackView()
@@ -835,6 +847,12 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
 
     private func makeContextMenu() -> NSMenu {
         let menu = NSMenu()
+        menu.delegate = self
+        let openWithMenu = NSMenu(title: "Open With")
+        openWithMenu.delegate = self
+        openWithMenu.addItem(otherApplicationItem)
+        openWithItem.submenu = openWithMenu
+        openWithItem.isHidden = true
         let definitions: [(String, String)] = [
             ("Open", "open"), ("Quick Look", "preview"), ("", ""),
             ("Copy", "copy"), ("Cut", "cut"), ("Paste Here", "paste"),
@@ -858,8 +876,98 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
                 item.submenu = submenu
             }
             menu.addItem(item)
+            if action == "open" { menu.addItem(openWithItem) }
         }
         return menu
+    }
+
+    private var filesForOpenWith: [URL] {
+        guard !loading else { return [] }
+        let entries = table.selectedRowIndexes.compactMap { visibleEntries.indices.contains($0) ? visibleEntries[$0] : nil }
+        guard entries.allSatisfy({ !$0.isDirectory || NSWorkspace.shared.isFilePackage(atPath: $0.url.path) }) else { return [] }
+        return entries.map(\.url)
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        let files = filesForOpenWith
+        if menu === table.menu {
+            openWithItem.isHidden = files.isEmpty
+        } else if menu === openWithItem.submenu {
+            populateOpenWith(menu, files: files)
+        }
+    }
+
+    private func populateOpenWith(_ menu: NSMenu, files: [URL]) {
+        menu.removeAllItems()
+        guard let first = files.first else { return }
+        let workspace = NSWorkspace.shared
+        var applications = Set(workspace.urlsForApplications(toOpen: first).map(\.standardizedFileURL))
+        var preferred = workspace.urlForApplication(toOpen: first)?.standardizedFileURL
+        for file in files.dropFirst() {
+            guard !applications.isEmpty else { break }
+            applications.formIntersection(workspace.urlsForApplications(toOpen: file).map(\.standardizedFileURL))
+            if preferred != nil, workspace.urlForApplication(toOpen: file)?.standardizedFileURL != preferred { preferred = nil }
+        }
+        let ownID = Bundle.main.bundleIdentifier
+        let choices = applications.compactMap { url -> (url: URL, name: String)? in
+            if let ownID, Bundle(url: url)?.bundleIdentifier == ownID { return nil }
+            return (url, FileManager.default.displayName(atPath: url.path))
+        }.sorted { first, second in
+            if first.url == preferred { return true }
+            if second.url == preferred { return false }
+            let order = first.name.localizedStandardCompare(second.name)
+            return order == .orderedSame ? first.url.path < second.url.path : order == .orderedAscending
+        }
+        for choice in choices {
+            let title = choice.url == preferred ? "\(choice.name) (Default)" : choice.name
+            let item = NSMenuItem(title: title, action: #selector(openWith(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = OpenWithChoice(files: files, application: choice.url)
+            item.toolTip = choice.url.path
+            if let icon = workspace.icon(forFile: choice.url.path).copy() as? NSImage {
+                icon.size = NSSize(width: 16, height: 16)
+                item.image = icon
+            }
+            menu.addItem(item)
+        }
+        if !choices.isEmpty { menu.addItem(.separator()) }
+        otherApplicationItem.representedObject = OpenWithChoice(files: files, application: nil)
+        menu.addItem(otherApplicationItem)
+    }
+
+    @objc private func openWith(_ sender: NSMenuItem) {
+        guard let choice = sender.representedObject as? OpenWithChoice, choice.files == filesForOpenWith,
+              let window = view.window, window.attachedSheet == nil else { return }
+        if let application = choice.application {
+            open(choice.files, with: application, in: window)
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.title = "Choose an Application"
+        panel.prompt = "Open"
+        panel.directoryURL = FileManager.default.urls(for: .applicationDirectory, in: .localDomainMask).first
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.treatsFilePackagesAsDirectories = false
+        panel.beginSheetModal(for: window) { [weak self, weak window] response in
+            guard response == .OK, let application = panel.url, let window else { return }
+            self?.open(choice.files, with: application, in: window)
+        }
+    }
+
+    private func open(_ files: [URL], with application: URL, in window: NSWindow) {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.allowsRunningApplicationSubstitution = false
+        NSWorkspace.shared.open(files, withApplicationAt: application, configuration: configuration) { [weak window] _, error in
+            guard let error else { return }
+            DispatchQueue.main.async {
+                guard let window, window.isVisible else { return }
+                let alert = NSAlert(error: error)
+                alert.messageText = "Cannot Open with \(FileManager.default.displayName(atPath: application.path))"
+                alert.beginSheetModal(for: window)
+            }
+        }
     }
 
     @objc private func backClicked() { goBack() }
