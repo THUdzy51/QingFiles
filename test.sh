@@ -12,3 +12,8 @@ swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleC
 
 swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleCache" "$source_dir/FileService.swift" "$source_dir/WeChatRevealSetting.swift" "$source_dir/Tests/WeChatRevealSettingTests.swift" -o "$build_dir/wechat-reveal-setting-tests"
 "$build_dir/wechat-reveal-setting-tests"
+
+swiftc -swift-version 5 -parse-as-library -module-cache-path "$build_dir/ModuleCache" \
+    -I "$source_dir/ArchiveSupport" "$source_dir/FileService.swift" "$source_dir/ArchivePreview.swift" \
+    "$source_dir/Tests/ArchivePreviewTests.swift" -o "$build_dir/archive-preview-tests"
+"$build_dir/archive-preview-tests"

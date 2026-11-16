@@ -9,7 +9,12 @@ app_dir="$output_dir/QingFiles.app"
 build_dir="${QINGFILES_BUILD_DIR:-$source_dir/.build}"
 mkdir -p "$build_dir/ModuleCache" "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 export CLANG_MODULE_CACHE_PATH="$build_dir/ModuleCache"
-swiftc -swift-version 5 -parse-as-library -O -target "${architecture}-apple-macosx13.0" -module-cache-path "$build_dir/ModuleCache" -framework AppKit -framework Quartz -framework Security "$source_dir/RemoteService.swift" "$source_dir/RemoteWorkspace.swift" "$source_dir/Theme.swift" "$source_dir/FileService.swift" "$source_dir/FileRevealService.swift" "$source_dir/WeChatRevealSetting.swift" "$source_dir/SettingsWindow.swift" "$source_dir/FilePane.swift" "$source_dir/App.swift" -o "$app_dir/Contents/MacOS/QingFiles"
+swiftc -swift-version 5 -parse-as-library -O -target "${architecture}-apple-macosx13.0" -module-cache-path "$build_dir/ModuleCache" \
+    -I "$source_dir/ArchiveSupport" -framework AppKit -framework Quartz -framework QuickLookThumbnailing -framework Security \
+    "$source_dir/RemoteService.swift" "$source_dir/RemoteWorkspace.swift" "$source_dir/Theme.swift" "$source_dir/FileService.swift" \
+    "$source_dir/FileRevealService.swift" "$source_dir/WeChatRevealSetting.swift" "$source_dir/SettingsWindow.swift" \
+    "$source_dir/FilePane.swift" "$source_dir/ArchivePreview.swift" "$source_dir/SelectionPreviewPane.swift" "$source_dir/App.swift" \
+    -o "$app_dir/Contents/MacOS/QingFiles"
 swiftc -swift-version 5 -module-cache-path "$build_dir/ModuleCache" -framework AppKit "$source_dir/Tools/MakeIcon.swift" -o "$build_dir/make-icon"
 "$build_dir/make-icon" "$build_dir/icon-1024.png"
 mkdir -p "$build_dir/AppIcon.iconset"

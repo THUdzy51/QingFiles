@@ -197,6 +197,8 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     var onSelectionChanged: ((FilePane) -> Void)?
     var onAction: ((FilePane, String) -> Void)?
     var allowsInlineRename: (() -> Bool)?
+    var allowsFileDrop: (() -> Bool)?
+    var onFileDrop: (([URL], URL, FileTransferMode) -> Void)?
 
     var isActive = false {
         didSet {
@@ -278,9 +280,6 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         view = root
 
         root.setAccessibilityLabel("\(paneTitle) file pane")
-        folderLabel.font = NSFont.systemFont(ofSize: 15, weight: .semibold)
-        folderLabel.lineBreakMode = .byTruncatingMiddle
-        folderLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         backButton = iconButton("chevron.left", tooltip: "Back", action: #selector(backClicked))
         forwardButton = iconButton("chevron.right", tooltip: "Forward", action: #selector(forwardClicked))
@@ -355,8 +354,10 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         table.style = .plain
         table.target = self
         table.doubleAction = #selector(doubleClicked)
-        table.setDraggingSourceOperationMask(.copy, forLocal: true)
+        table.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
         table.setDraggingSourceOperationMask(.copy, forLocal: false)
+        table.registerForDraggedTypes([.fileURL])
+        table.draggingDestinationFeedbackStyle = .regular
 
         let name = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("name"))
         name.title = "Name"
@@ -410,27 +411,18 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         footer.spacing = 8
         statusLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        let divider = NSBox()
-        divider.boxType = .separator
-        for subview in [folderLabel, navigationRow, divider, scroll, emptyLabel, footer] {
+        let header = PaneHeaderView(title: folderLabel, controls: navigationRow)
+        for subview in [header, scroll, emptyLabel, footer] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(subview)
         }
         NSLayoutConstraint.activate([
-            folderLabel.topAnchor.constraint(equalTo: root.topAnchor, constant: 12),
-            folderLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
-            folderLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -12),
-            folderLabel.heightAnchor.constraint(equalToConstant: 20),
-            navigationRow.topAnchor.constraint(equalTo: folderLabel.bottomAnchor, constant: 8),
-            navigationRow.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 12),
-            navigationRow.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -12),
-            navigationRow.heightAnchor.constraint(equalToConstant: 27),
+            header.topAnchor.constraint(equalTo: root.topAnchor),
+            header.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             pathField.heightAnchor.constraint(equalToConstant: 27),
             searchField.heightAnchor.constraint(equalToConstant: 27),
-            divider.topAnchor.constraint(equalTo: navigationRow.bottomAnchor, constant: 10),
-            divider.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            divider.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            scroll.topAnchor.constraint(equalTo: divider.bottomAnchor),
+            scroll.topAnchor.constraint(equalTo: header.bottomAnchor),
             scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 5),
             scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -5),
             scroll.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -4),
@@ -1207,6 +1199,49 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
                    willBeginAt screenPoint: NSPoint, forRowIndexes rowIndexes: IndexSet) {
         table.didBeginDragging = true
         cancelPendingRename()
+    }
+
+    func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo,
+                   proposedRow row: Int, proposedDropOperation operation: NSTableView.DropOperation) -> NSDragOperation {
+        guard let drop = fileDrop(info, row: row, operation: operation) else { return [] }
+        tableView.setDropRow(drop.row, dropOperation: .on)
+        return drop.mode == .copy ? .copy : .move
+    }
+
+    func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo,
+                   row: Int, dropOperation operation: NSTableView.DropOperation) -> Bool {
+        guard let onFileDrop, let drop = fileDrop(info, row: row, operation: operation) else { return false }
+        onFileDrop(drop.urls, drop.directory, drop.mode)
+        return true
+    }
+
+    private func fileDrop(_ info: NSDraggingInfo, row: Int, operation: NSTableView.DropOperation)
+        -> (urls: [URL], directory: URL, row: Int, mode: FileTransferMode)? {
+        guard !loading, onFileDrop != nil, allowsFileDrop?() == true,
+              let source = info.draggingSource as? FileListTable, source.window === table.window,
+              let urls = info.draggingPasteboard.readObjects(forClasses: [NSURL.self],
+                  options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty else { return nil }
+        var targetRow = -1
+        var directory = currentDirectory
+        if operation == .on, visibleEntries.indices.contains(row) {
+            let entry = visibleEntries[row]
+            if entry.isDirectory, !NSWorkspace.shared.isFilePackage(atPath: entry.url.path) {
+                targetRow = row
+                directory = entry.url
+            }
+        }
+        let destination = directory.standardizedFileURL.path
+        let insideDestination = destination.hasSuffix("/") ? destination : destination + "/"
+        guard urls.allSatisfy({ sourceURL in
+            let path = sourceURL.standardizedFileURL.path
+            return sourceURL.deletingLastPathComponent().standardizedFileURL.path != destination &&
+                path != destination && !insideDestination.hasPrefix(path + "/")
+        }) else { return nil }
+
+        let mask = info.draggingSourceOperationMask
+        if !NSEvent.modifierFlags.contains(.option), mask.contains(.move) { return (urls, directory, targetRow, .move) }
+        if mask.contains(.copy) { return (urls, directory, targetRow, .copy) }
+        return nil
     }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {

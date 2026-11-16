@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Remove New Folder and Quick Look buttons from the toolbar.
+- Show the lower preview area only while a file is selected. Keep it stable when switching files and fit still images proportionally within it.
+- Align the preview and file browser headers and use native file icons in the preview tree and media placeholders.
+- Default to a selection preview on the right in two-pane mode, with a toolbar button to switch to two independent folders. Preview a folder or archive as an expandable tree or an image and video list. Open individual archive entries with Quick Look.
+- Move files between local panes by dragging to the file list or a folder row. Hold Option to copy.
+
 - Rename existing items inline with a single filename click. Select only the filename stem while keeping its extension visible; retain icon selection, modifier clicks, dragging, and double-click opening. Return or an outside click commits, Escape cancels, and validation failures allow retry. Keep renamed selections visible after sorting and filtering.
 
 - Add an opt-in Settings switch for routing WeChat's Show in Finder action to QingFiles across normal launches. Switching off restores the saved per-app viewer preference. WeChat must be fully restarted after either change.

@@ -8,6 +8,8 @@ QingFiles is a small AppKit application compiled directly with `swiftc`. There a
 |---|---|
 | `App.swift` | Entry point, menus, main window, sidebar, pane pairing, clipboard intent, operation queue, alerts, persistence, Quick Look controller. |
 | `FilePane.swift` | Independent directory browser: table, navigation history, path/search fields, selection, sorting, context menu and keyboard routing. |
+| `SelectionPreviewPane.swift` | Right-pane structure and media lists, bounded image previews, and embedded Quick Look. |
+| `ArchivePreview.swift` / `ArchiveSupport/` | System libarchive reader for archive listings and temporary previews of individual entries. |
 | `FileService.swift` | Local filesystem metadata and mutations, name validation, collision prevention, selection validation, and per-item results. |
 | `FileRevealService.swift` | Decode local file URLs and legacy filename lists supplied to the macOS service. |
 | `WeChatRevealSetting.swift` | Persist WeChat's viewer override and its restoration record, with verified writes and protection for externally changed preferences. |
@@ -25,7 +27,7 @@ QingFiles is a small AppKit application compiled directly with `swiftc`. There a
 
 A `FilePane` requests a directory listing on a background queue. Each request carries a generation number. Late results from older requests are ignored. Changing folders clears previous rows immediately; loading panes do not export an old selection for file actions. Filtering and table updates happen on the main queue.
 
-The pane delegates mutation requests to the application controller through `onAction`. Browsing, opening documents, and outbound drag data are handled by the pane. Filesystem mutations belong in `FileService`, not in table-cell code.
+The pane handles browsing and drag targeting and delegates file actions and accepted local drops to the application controller. Cross-pane drops use the same `FileService` transfer logic as the paired-pane and clipboard actions.
 
 ## Operation flow
 

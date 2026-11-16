@@ -4,6 +4,37 @@ final class TopAlignedStackView: NSStackView {
     override var isFlipped: Bool { true }
 }
 
+final class PaneHeaderView: NSView {
+    init(title: NSTextField, controls: NSView) {
+        super.init(frame: .zero)
+        title.font = .systemFont(ofSize: 15, weight: .semibold)
+        title.lineBreakMode = .byTruncatingMiddle
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let divider = NSBox()
+        divider.boxType = .separator
+        for view in [title, controls, divider] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
+        NSLayoutConstraint.activate([
+            title.topAnchor.constraint(equalTo: topAnchor, constant: 12),
+            title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            title.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            title.heightAnchor.constraint(equalToConstant: 20),
+            controls.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 8),
+            controls.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            controls.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            controls.heightAnchor.constraint(equalToConstant: 27),
+            divider.topAnchor.constraint(equalTo: controls.bottomAnchor, constant: 10),
+            divider.leadingAnchor.constraint(equalTo: leadingAnchor),
+            divider.trailingAnchor.constraint(equalTo: trailingAnchor),
+            divider.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+}
+
 enum QingTheme {
     static let accent = NSColor(srgbRed: 0, green: 113.0/255, blue: 227.0/255, alpha: 1)
     static let background = NSColor(srgbRed: 245.0/255, green: 245.0/255, blue: 247.0/255, alpha: 1)
