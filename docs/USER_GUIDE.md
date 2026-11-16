@@ -26,6 +26,14 @@ Each pane shows its folder title above a single navigation row. Back, Forward, P
 
 Click the search button or press `⌘F` to expand and focus the current-folder name filter. Wide panes show the path and search together. In narrow panes, search temporarily occupies the path area. Moving focus elsewhere keeps the filter visible. The search field's clear button restores the full list and keeps search expanded. Escape or the Close Search button clears and collapses it. Changing folders also clears and collapses search. `⌘L` clears and collapses search before focusing the path field, avoiding a hidden active filter while editing a path.
 
+## Breadcrumb paths and full-path editing
+
+Click a directory name in the path bar to navigate directly to it. Click the arrow immediately to its right to list that directory’s direct subfolders and jump to one. The arrow points down while its menu is open below the path bar. The menu follows the pane’s hidden-item setting. Home appears as `~` and the filesystem root as `/`. When the path is too long, a `…` menu lists omitted ancestor folders. Hover over a segment to highlight it and see the full path in a tooltip.
+
+Click empty space in the shaded path bar or press `⌘L` to edit the full absolute path with all text selected. The pointer becomes a text cursor over the editing area. Copy it with `⌘C`, paste another path, or click again to position the cursor for a partial edit. Return navigates, accepting absolute paths, `~`, and paths relative to the current folder. The original spelling of symbolic-link paths is preserved. Missing paths and file paths keep the editor open and show feedback in the pane footer.
+
+Press Escape, click outside the field (including blank space), or switch away from the browser window to discard unsubmitted path input and restore breadcrumbs. Press Return to navigate to the entered path. Each pane retains its own location and history. Opening path editing clears and collapses search, while opening search ends path editing.
+
 ## Create a blank document
 
 Right-click in a local pane and choose **New**, then Folder, Word Document (`.docx`), Excel Workbook (`.xlsx`), PowerPoint Presentation (`.pptx`), PDF Document (`.pdf`), Text Document (`.txt`), or Markdown Document (`.md`). The item is created in that pane's displayed folder, including when you right-click an existing item. Existing names receive a numbered suffix such as `New Word Document (2).docx`.

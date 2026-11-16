@@ -34,13 +34,14 @@ struct PaneHeaderTests {
         let controls = descendants(pane.view)
         let fields = controls.compactMap { $0 as? NSTextField }
         let path = fields.first { $0.placeholderString?.hasPrefix("Enter a path") == true }!
+        let breadcrumbs = controls.first { $0.toolTip == "Click empty space to edit the path, or press ⌘L" }!
         let search = fields.compactMap { $0 as? NSSearchField }.first!
         let buttons = controls.compactMap { $0 as? NSButton }
         let toggle = buttons.first { $0.toolTip == "Search Current Folder · ⌘F" }!
         expect(!fields.contains { $0.stringValue == "Left" }, "positional label is absent")
         expect(fields.contains { $0.stringValue == "Fixture" }, "folder title remains")
-        expect(search.isHidden && !path.isHidden, "search starts collapsed")
-        let pathFrame = pane.view.convert(path.bounds, from: path)
+        expect(search.isHidden && !breadcrumbs.isHiddenOrHasHiddenAncestor, "search starts collapsed")
+        let pathFrame = pane.view.convert(breadcrumbs.bounds, from: breadcrumbs)
         for name in ["Back", "Forward", "Parent Folder", "Refresh"] {
             let button = buttons.first { $0.toolTip == name }!
             let frame = pane.view.convert(button.bounds, from: button)
@@ -48,13 +49,13 @@ struct PaneHeaderTests {
         }
         toggle.performClick(nil)
         pane.view.layoutSubtreeIfNeeded()
-        expect(!search.isHidden && path.isHidden, "search button expands in the narrow path area")
+        expect(!search.isHidden && breadcrumbs.isHiddenOrHasHiddenAncestor, "search button expands in the narrow path area")
         expect(search.frame.width > 100, "search remains usable at minimum pane width")
         search.stringValue = "retained query"
         _ = window.makeFirstResponder(nil)
         expect(!search.isHidden && search.stringValue == "retained query", "blur keeps the filter visible")
         _ = pane.control(search, textView: NSTextView(), doCommandBy: #selector(NSResponder.cancelOperation(_:)))
-        expect(search.isHidden && search.stringValue.isEmpty && !path.isHidden, "Escape clears and collapses search")
+        expect(search.isHidden && search.stringValue.isEmpty && !breadcrumbs.isHiddenOrHasHiddenAncestor, "Escape clears and collapses search")
         pane.focusSearch()
         expect(!search.isHidden, "Command-F entry point expands search")
         search.stringValue = "old query"
@@ -68,7 +69,7 @@ struct PaneHeaderTests {
         pane.view.layoutSubtreeIfNeeded()
         pane.focusSearch()
         pane.view.layoutSubtreeIfNeeded()
-        expect(!path.isHidden && !search.isHidden, "wide panes share the row between path and search")
+        expect(!breadcrumbs.isHiddenOrHasHiddenAncestor && !search.isHidden, "wide panes share the row between path and search")
         let searchFrame = pane.view.convert(search.bounds, from: search)
         expect(searchFrame.maxX <= pane.view.bounds.maxX, "wide search stays inside the pane")
         print("SUCCESS: \(checks) pane header checks passed.")
