@@ -25,6 +25,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private var paneModeButton: NSButton!
     private var copyAcrossButton: NSButton!
     private var moveAcrossButton: NSButton!
+    private var connectButton: NSButton!
     private let selectionPreview = SelectionPreviewPane()
     private var hiddenButton: NSButton!
     private var statusLabel = QingTheme.label("Ready", size: 11, color: .secondaryLabelColor)
@@ -52,7 +53,10 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private var isPreview: Bool { argument("--preview") != nil }
     private var fourPanes = false
     private var rightPaneShowsPreview = true
-    private var showsSelectionPreview: Bool { !fourPanes && rightPaneShowsPreview }
+    private var remoteConnected: Bool { remoteWorkspace?.isConnected == true }
+    private var usesPairedLocalPanes: Bool { !remoteConnected && !showsSelectionPreview }
+    private var showsSelectionPreview: Bool { !remoteConnected && !fourPanes && rightPaneShowsPreview }
+    private var localMutationBusy: Bool { operationBusy || remoteWorkspace?.isBusy == true }
     private let worker = DispatchQueue(label: "local.qingfiles.operations", qos: .userInitiated)
     private var activePane: FilePane { panes[activeIndex] }
     private var otherPane: FilePane { panes[activeIndex ^ 1] }
@@ -237,10 +241,10 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
                 self?.updateSelectionPreview(from: pane)
             }
             pane.onAction = { [weak self] pane, action in self?.activate(pane); self?.handle(action) }
-            pane.allowsInlineRename = { [weak self] in self?.operationBusy == false }
+            pane.allowsInlineRename = { [weak self] in self?.localMutationBusy == false }
             pane.allowsFileDrop = { [weak self] in
                 guard let self else { return false }
-                return !self.operationBusy && self.window.attachedSheet == nil
+                return !self.localMutationBusy && self.window.attachedSheet == nil
             }
             pane.onFileDrop = { [weak self] sources, destination, mode in
                 self?.transfer(sources, to: destination, mode: mode)
@@ -279,11 +283,11 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         hiddenButton.setButtonType(.toggle)
         hiddenButton.state = !isPreview && UserDefaults.standard.bool(forKey: "showHidden") ? .on : .off
         hiddenButton.toolTip = "Show or hide hidden items · ⌘⇧."
-        let connect = QingTheme.button("Connect", symbol: "network", target: self, action: #selector(connectionsAction))
-        connect.contentTintColor = QingTheme.accent
+        connectButton = QingTheme.button("Connect", symbol: "network", target: self, action: #selector(connectionsAction))
+        connectButton.contentTintColor = QingTheme.accent
         let refresh = QingTheme.button("", symbol: "arrow.clockwise", target: self, action: #selector(refreshAction))
         refresh.toolTip = "Refresh the current folder · ⌘R"
-        let toolbar = NSStackView(views: [layoutSwitch, paneModeButton, copyAcrossButton, moveAcrossButton, hiddenButton, connect, refresh])
+        let toolbar = NSStackView(views: [layoutSwitch, paneModeButton, copyAcrossButton, moveAcrossButton, hiddenButton, connectButton, refresh])
         toolbar.spacing = 8
         header.addSubview(toolbar)
         brand.translatesAutoresizingMaskIntoConstraints = false
@@ -430,29 +434,38 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private func rebuildPanes() {
         panes.forEach { $0.view.removeFromSuperview() }
         selectionPreview.removeFromSuperview()
+        remoteWorkspace?.remoteView.removeFromSuperview()
         paneContainer.arrangedSubviews.forEach { paneContainer.removeArrangedSubview($0); $0.removeFromSuperview() }
-        for rowIndex in 0..<(fourPanes ? 2 : 1) {
-            let right = showsSelectionPreview ? selectionPreview : panes[rowIndex * 2 + 1].view
+        let remote = remoteConnected ? remoteWorkspace?.remoteView : nil
+        let showsFourPanes = fourPanes && !remoteConnected
+        for rowIndex in 0..<(showsFourPanes ? 2 : 1) {
+            let right = remote ?? (showsSelectionPreview ? selectionPreview : panes[rowIndex * 2 + 1].view)
             let row = NSStackView(views: [panes[rowIndex * 2].view, right])
             row.orientation = .horizontal; row.distribution = .fillEqually; row.alignment = .height; row.spacing = 1
             paneContainer.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: paneContainer.widthAnchor).isActive = true
         }
-        if showsSelectionPreview || (!fourPanes && activeIndex >= 2) { activeIndex = 0 }
+        if !usesPairedLocalPanes || (!showsFourPanes && activeIndex >= 2) { activeIndex = 0 }
         activate(panes[activeIndex])
-        paneModeButton.isHidden = fourPanes
+        layoutSwitch.selectedSegment = showsFourPanes ? 1 : 0
+        layoutSwitch.isEnabled = !remoteConnected
+        connectButton.title = remoteConnected ? "Disconnect" : "Connect"
+        connectButton.image = QingTheme.symbol(remoteConnected ? "eject" : "network")
+        paneModeButton.isHidden = showsFourPanes || remoteConnected
         paneModeButton.title = showsSelectionPreview ? "Two Folders" : "Preview Pane"
         paneModeButton.image = QingTheme.symbol(showsSelectionPreview ? "folder" : "eye")
         paneModeButton.toolTip = showsSelectionPreview ? "Browse folders in both panes" : "Show a preview of the left pane’s selection"
-        copyAcrossButton.isEnabled = !showsSelectionPreview
-        moveAcrossButton.isEnabled = !showsSelectionPreview
+        copyAcrossButton.isHidden = remoteConnected
+        moveAcrossButton.isHidden = remoteConnected
+        copyAcrossButton.isEnabled = usesPairedLocalPanes
+        moveAcrossButton.isEnabled = usesPairedLocalPanes
         if showsSelectionPreview { updateSelectionPreview(from: panes[0]) }
         else { selectionPreview.show(nil, includeHidden: false) }
     }
 
     private func activate(_ pane: FilePane) {
         guard let index = panes.firstIndex(where: { $0 === pane }) else { return }
-        guard !showsSelectionPreview || index == 0 else { return }
+        guard usesPairedLocalPanes || index == 0 else { return }
         activeIndex = index
         for (i, pane) in panes.enumerated() { pane.isActive = i == index }
         updateLocations(); updateStatus()
@@ -468,7 +481,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private func updateStatus() {
         guard !panes.isEmpty, !operationBusy else { return }
         let count = activePane.selectedURLs.count
-        if showsSelectionPreview { statusLabel.stringValue = count > 0 ? "\(count) selected" : "Local workspace" }
+        if !usesPairedLocalPanes { statusLabel.stringValue = count > 0 ? "\(count) selected" : "Local workspace" }
         else { statusLabel.stringValue = count > 0 ? "\(count) selected · Paired destination: \(otherPane.currentDirectory.lastPathComponent)" : "Local workspace · Click a pane to start browsing" }
     }
 
@@ -478,15 +491,35 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     }
 
     @objc private func connectionsAction(_ sender: Any?) {
-        if remoteWorkspace == nil { remoteWorkspace = RemoteWorkspace(localDirectory: activePane.currentDirectory) }
-        remoteWorkspace?.showWindow(nil)
-        remoteWorkspace?.window?.makeKeyAndOrderFront(nil)
+        if remoteWorkspace == nil {
+            let workspace = RemoteWorkspace(local: panes[0])
+            workspace.canTransfer = { [weak self] in self?.operationBusy == false }
+            workspace.onConnectionChanged = { [weak self] in
+                guard let self else { return }
+                self.window.makeFirstResponder(nil)
+                self.rebuildPanes()
+                self.window.makeKeyAndOrderFront(nil)
+            }
+            remoteWorkspace = workspace
+        }
+        guard let remoteWorkspace else { return }
+        if remoteWorkspace.isConnected {
+            guard !remoteWorkspace.isBusy else { NSSound.beep(); return }
+            remoteWorkspace.disconnect()
+        } else {
+            remoteWorkspace.showConnectionForm(over: window)
+        }
     }
 
     @objc private func sidebarClick(_ sender: SidebarButton) { if let url = sender.location { activePane.navigate(to: url) } }
-    @objc private func changeLayout(_ sender: Any?) { fourPanes = layoutSwitch.selectedSegment == 1; rebuildPanes(); saveState() }
+    @objc private func changeLayout(_ sender: Any?) {
+        guard !remoteConnected else { return }
+        fourPanes = layoutSwitch.selectedSegment == 1
+        rebuildPanes()
+        saveState()
+    }
     @objc private func togglePaneMode(_ sender: Any?) {
-        guard !fourPanes, window.makeFirstResponder(nil) else { return }
+        guard !remoteConnected, !fourPanes, window.makeFirstResponder(nil) else { return }
         rightPaneShowsPreview.toggle()
         rebuildPanes()
     }
@@ -518,20 +551,26 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     @objc func copy(_ sender: Any?) { handle("copy") }
     @objc func cut(_ sender: Any?) { handle("cut") }
     @objc func paste(_ sender: Any?) { handle("paste") }
-    @objc private func pasteMove(_ sender: Any?) { pasteFiles(forceMove: true) }
+    @objc private func pasteMove(_ sender: Any?) { handle("pasteMove") }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == #selector(settingsAction) { return true }
         guard !panes.isEmpty else { return false }
         if let keyWindow = NSApp.keyWindow, keyWindow !== window { return false }
         if window.attachedSheet != nil { return false }
-        if menuItem.action == #selector(togglePaneMode) { return !fourPanes }
-        if showsSelectionPreview, menuItem.action == #selector(copyOtherAction) || menuItem.action == #selector(moveOtherAction) { return false }
+        if menuItem.action == #selector(connectionsAction) {
+            menuItem.title = remoteConnected ? "Disconnect from Server" : "Connect to Server…"
+            return remoteWorkspace?.isBusy != true
+        }
+        if menuItem.action == #selector(togglePaneMode) { return !remoteConnected && !fourPanes }
+        if !usesPairedLocalPanes, menuItem.action == #selector(copyOtherAction) || menuItem.action == #selector(moveOtherAction) { return false }
         let fileActions: [Selector] = [#selector(trashAction), #selector(renameAction), #selector(pasteMove), #selector(copyOtherAction), #selector(moveOtherAction), #selector(openAction), #selector(previewAction)]
+        if remoteWorkspace?.hasFocus == true, let action = menuItem.action,
+           (fileActions + [#selector(newFolderAction), #selector(copyPathAction), #selector(favoriteAction)]).contains(action) { return false }
         if let editor = window.firstResponder as? NSTextView, editor.isFieldEditor,
            let action = menuItem.action, fileActions.contains(action) { return false }
         let mutations: [Selector] = [#selector(trashAction), #selector(renameAction), #selector(pasteMove), #selector(copyOtherAction), #selector(moveOtherAction), #selector(newFolderAction)]
-        if operationBusy, let action = menuItem.action, mutations.contains(action) { return false }
+        if localMutationBusy, let action = menuItem.action, mutations.contains(action) { return false }
         let needsSelection: [Selector] = [#selector(trashAction), #selector(renameAction), #selector(copyOtherAction), #selector(moveOtherAction), #selector(openAction), #selector(previewAction)]
         if let action = menuItem.action, needsSelection.contains(action), activePane.selectedURLs.isEmpty { return false }
         if menuItem.action == #selector(renameAction) { return activePane.selectedURLs.count == 1 }
@@ -539,7 +578,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     }
 
     private func handle(_ action: String) {
-        guard window.attachedSheet == nil, NSApp.keyWindow === window else { return }
+        guard window.attachedSheet == nil, NSApp.keyWindow === window, remoteWorkspace?.hasFocus != true else { return }
         if action.hasPrefix("newItem:"), let kind = NewItemKind(rawValue: String(action.dropFirst(8))) {
             createBlankItem(kind)
             return
@@ -561,7 +600,8 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         case "paste": pasteFiles(forceMove: false)
         case "pasteMove": pasteFiles(forceMove: true)
         case "copyToOther", "moveToOther":
-            guard !showsSelectionPreview else {
+            guard !remoteConnected else { return }
+            guard usesPairedLocalPanes else {
                 statusLabel.stringValue = "Choose Two Folders to show the destination pane."
                 return
             }
@@ -572,20 +612,20 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
             NSPasteboard.general.clearContents(); NSPasteboard.general.setString(paths, forType: .string)
             clipboardCutChangeCount = nil; statusLabel.stringValue = "Path copied"
         case "newFolder":
-            guard !operationBusy else { NSSound.beep(); return }
+            guard !localMutationBusy else { NSSound.beep(); return }
             let parent = activePane.currentDirectory
             askName(title: "New Folder", message: "Location: \(parent.path)", value: "Untitled Folder") { [weak self] name in
                 do { _ = try FileService.createDirectory(named: name, in: parent); self?.refreshAll() }
                 catch { self?.showMessage("Cannot Create Folder", error.localizedDescription) }
             }
         case "rename":
-            guard !operationBusy, selected.count == 1, let source = selected.first else { NSSound.beep(); return }
+            guard !localMutationBusy, selected.count == 1, let source = selected.first else { NSSound.beep(); return }
             askName(title: "Rename", message: source.lastPathComponent, value: source.lastPathComponent) { [weak self] name in
                 do { _ = try FileService.rename(source, to: name); self?.refreshAll() }
                 catch { self?.showMessage("Cannot Rename Item", error.localizedDescription) }
             }
         case "trash":
-            guard !operationBusy, !selected.isEmpty else { NSSound.beep(); return }
+            guard !localMutationBusy, !selected.isEmpty else { NSSound.beep(); return }
             let alert = NSAlert(); alert.messageText = "Move \(selected.count) item(s) to Trash?"
             alert.informativeText = selected.prefix(8).map(\.lastPathComponent).joined(separator: "\n") + (selected.count > 8 ? "\n…" : "") + "\n\nItems can be restored from Trash in Finder."
             alert.addButton(withTitle: "Move to Trash"); alert.addButton(withTitle: "Cancel")
@@ -605,7 +645,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     }
 
     private func createBlankItem(_ kind: NewItemKind) {
-        guard !operationBusy else { NSSound.beep(); return }
+        guard !localMutationBusy else { NSSound.beep(); return }
         let pane = activePane
         let parent = pane.currentDirectory
         guard window.makeFirstResponder(nil) else { return }
@@ -650,7 +690,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     }
 
     private func runOperation(_ message: String, completion: ((FileOperationReport) -> Void)? = nil, work: @escaping () -> FileOperationReport) {
-        guard !operationBusy else { NSSound.beep(); return }
+        guard !localMutationBusy else { NSSound.beep(); return }
         operationBusy = true; statusLabel.stringValue = message; activityIndicator.startAnimation(nil)
         worker.async { [weak self] in
             let report = work()
@@ -739,7 +779,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         item(view, "Refresh", #selector(refreshAction), "r")
         item(view, "Search Current Folder", #selector(focusSearchAction), "f")
         let connections = submenu("Connections")
-        item(connections, "Remote Workspace…", #selector(connectionsAction), "k", [.command, .shift])
+        item(connections, "Connect to Server…", #selector(connectionsAction), "k", [.command, .shift])
         let go = submenu("Go")
         item(go, "Edit Path", #selector(focusPathAction), "l")
         item(go, "Root", #selector(rootAction), "/", [.command, .shift])

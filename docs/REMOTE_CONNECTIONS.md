@@ -1,6 +1,6 @@
 # Remote connections
 
-Open **Connect** in the toolbar, or **Connections → Remote Workspace** (`⌘⇧K`). The main window remains a local file manager; the connection window explicitly separates local paths from server paths.
+Open **Connect** in the toolbar, or **Connections → Connect to Server** (`⌘⇧K`). After the initial directory loads, the form closes and the main window shows your local folder on the left and the server folder on the right. **Disconnect** restores the previous pane layout.
 
 ## Choose a protocol
 
@@ -18,15 +18,14 @@ Use a hostname or IP address in Host, without a URL scheme or `user@` prefix. En
 2. Enter a password or key passphrase if needed. For key authentication, optionally enter a key file such as `~/.ssh/id_ed25519`. An available SSH agent can also authenticate.
 3. Click **Connect**. For a new server, the app displays the SSH host fingerprints. Compare the SHA-256 fingerprints with a trusted value from the server administrator, then click **Trust Host** to continue connecting. **Verify SSH Host…** also opens this confirmation separately.
 4. For a previously verified server, **Connect** proceeds directly to authentication and directory browsing. SSH checks the saved host keys during every connection. A changed key requires manual verification.
-5. Server/authentication fields are locked while connected; disconnect before editing them.
-6. Double-click remote folders to navigate. Use the remote path field, Up, Refresh, and Hidden items controls as needed.
+5. Double-click remote folders to navigate. Enter a remote path and press Return to open it, or use the Up, Refresh, and Hidden items controls.
 
 Trusted keys are maintained separately in `~/Library/Application Support/QingFiles/known_hosts`. QingFiles does not edit `~/.ssh/known_hosts` or `~/.ssh/config`. SSH clients use strict checking, no agent forwarding, and no configured port forwards.
 
 ## Upload and download
 
-- Select regular files in the local pane, check the remote path, then click **Upload →**.
-- Select regular files in the remote list, check the local folder, then click **← Download**.
+- Drag regular files to the other pane to copy them to its current folder, or drop onto a folder row to copy into that folder. The source files stay in place.
+- You can also select files and click **Upload →** or **← Download**.
 - The status shows the current file and file count. Transfers run off the main thread. **Cancel Transfer** stops the current process and prevents subsequent files from starting.
 - Batches stop at the first failure and report how many files finished. Completed files are not rolled back.
 - Known existing destination names are skipped with an error. Downloads use a unique staging file and a local move that refuses an existing destination.

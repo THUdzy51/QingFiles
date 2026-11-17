@@ -205,6 +205,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     var allowsInlineRename: (() -> Bool)?
     var allowsFileDrop: (() -> Bool)?
     var onFileDrop: (([URL], URL, FileTransferMode) -> Void)?
+    var prepareRemoteDrop: ((NSDraggingInfo) -> ((URL) -> Void)?)?
 
     var isActive = false {
         didSet {
@@ -1311,6 +1312,10 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
 
     func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo,
                    proposedRow row: Int, proposedDropOperation operation: NSTableView.DropOperation) -> NSDragOperation {
+        if !loading, allowsFileDrop?() == true, prepareRemoteDrop?(info) != nil {
+            tableView.setDropRow(dropTarget(row: row, operation: operation).row, dropOperation: .on)
+            return .copy
+        }
         guard let drop = fileDrop(info, row: row, operation: operation) else { return [] }
         tableView.setDropRow(drop.row, dropOperation: .on)
         return drop.mode == .copy ? .copy : .move
@@ -1318,9 +1323,31 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
 
     func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo,
                    row: Int, dropOperation operation: NSTableView.DropOperation) -> Bool {
+        if !loading, allowsFileDrop?() == true, let download = prepareRemoteDrop?(info) {
+            download(dropTarget(row: row, operation: operation).directory)
+            return true
+        }
         guard let onFileDrop, let drop = fileDrop(info, row: row, operation: operation) else { return false }
         onFileDrop(drop.urls, drop.directory, drop.mode)
         return true
+    }
+
+    func registerRemoteDropType(_ type: NSPasteboard.PasteboardType) {
+        table.registerForDraggedTypes([.fileURL, type])
+    }
+
+    func isDragSource(_ info: NSDraggingInfo) -> Bool {
+        (info.draggingSource as? NSTableView) === table
+    }
+
+    private func dropTarget(row: Int, operation: NSTableView.DropOperation) -> (directory: URL, row: Int) {
+        if operation == .on, visibleEntries.indices.contains(row) {
+            let entry = visibleEntries[row]
+            if entry.isDirectory, !NSWorkspace.shared.isFilePackage(atPath: entry.url.path) {
+                return (entry.url, row)
+            }
+        }
+        return (currentDirectory, -1)
     }
 
     private func fileDrop(_ info: NSDraggingInfo, row: Int, operation: NSTableView.DropOperation)
@@ -1328,15 +1355,7 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         guard !loading, onFileDrop != nil, allowsFileDrop?() == true,
               let urls = info.draggingPasteboard.readObjects(forClasses: [NSURL.self],
                   options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty else { return nil }
-        var targetRow = -1
-        var directory = currentDirectory
-        if operation == .on, visibleEntries.indices.contains(row) {
-            let entry = visibleEntries[row]
-            if entry.isDirectory, !NSWorkspace.shared.isFilePackage(atPath: entry.url.path) {
-                targetRow = row
-                directory = entry.url
-            }
-        }
+        let (directory, targetRow) = dropTarget(row: row, operation: operation)
         let destination = directory.standardizedFileURL.path
         let insideDestination = destination.hasSuffix("/") ? destination : destination + "/"
         guard urls.allSatisfy({ sourceURL in

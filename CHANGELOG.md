@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Open remote connections in a compact dialog. After connecting, browse the local and server folders side by side in the main window and drag files between them to upload or download. Disconnecting restores the prior layout.
+
 - Move local files and folders dragged from the desktop, Finder, or another application into a QingFiles file pane. Hold Option to copy.
 
 - Add an opt-in Accessibility setting to open ordinary folders in QingFiles when double-clicked in Finder or on its desktop.

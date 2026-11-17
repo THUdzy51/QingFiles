@@ -44,9 +44,7 @@ The blue pane caption and native keyboard focus identify the active pane. Sideba
 
 ## Remote connections
 
-![Connection workspace](docs/screenshot-connections.png)
-
-Click **Connect** (or `⌘⇧K`) to open a local/remote workspace. Choose SFTP, FTPS, or FTP; enter a host, username, port, and remote path. For SSH/SFTP, verify the server fingerprint before trusting it. Select regular files and use Upload/Download. **SSH Terminal** opens a shell session in macOS Terminal.
+Click **Connect** (or `⌘⇧K`) to open the connection form. Choose SFTP, FTPS, or FTP, and enter your server details. For SSH/SFTP, verify the server fingerprint before trusting it. After connecting, the main window shows your local folder on the left and the server folder on the right. Drag regular files between panes or use **Upload** and **Download**. **Disconnect** restores your previous layout. To open a shell session, choose **SSH Terminal** in the connection form.
 
 Read the [remote connection guide](docs/REMOTE_CONNECTIONS.md) for authentication, Keychain storage, host verification, cancellation, protocol limits, and partial-upload behavior. No real server credentials are included in this repository.
 
