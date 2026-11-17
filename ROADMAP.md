@@ -7,7 +7,7 @@ These are proposed directions, not release commitments. Track implementation in 
 - Directory watching with bounded refresh work.
 - Persisted transfer results, progress, and cancellation semantics.
 - Undo where a reliable inverse operation is possible.
-- Drag and drop from other applications with an explicit copy/move policy.
+- Receive drags from applications that supply file promises.
 - More permission, removable-volume, and large-directory validation.
 - Automated UI regression coverage for focus and pane pairing.
 

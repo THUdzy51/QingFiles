@@ -1326,7 +1326,6 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
     private func fileDrop(_ info: NSDraggingInfo, row: Int, operation: NSTableView.DropOperation)
         -> (urls: [URL], directory: URL, row: Int, mode: FileTransferMode)? {
         guard !loading, onFileDrop != nil, allowsFileDrop?() == true,
-              let source = info.draggingSource as? FileListTable, source.window === table.window,
               let urls = info.draggingPasteboard.readObjects(forClasses: [NSURL.self],
                   options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty else { return nil }
         var targetRow = -1
@@ -1347,8 +1346,13 @@ final class FilePane: NSViewController, NSTableViewDataSource, NSTableViewDelega
         }) else { return nil }
 
         let mask = info.draggingSourceOperationMask
-        if !NSEvent.modifierFlags.contains(.option), mask.contains(.move) { return (urls, directory, targetRow, .move) }
-        if mask.contains(.copy) { return (urls, directory, targetRow, .copy) }
+        let copyRequested = NSEvent.modifierFlags.contains(.option)
+        if !copyRequested, mask.contains(.move) {
+            return (urls, directory, targetRow, .move)
+        }
+        if mask.contains(.copy), copyRequested || info.draggingSource is FileListTable {
+            return (urls, directory, targetRow, .copy)
+        }
         return nil
     }
 

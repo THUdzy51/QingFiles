@@ -34,7 +34,7 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 | Quick Look | Select a file and press Space for the system preview. |
 | Open With | Right-click a local file to open it in a compatible app or select **Other…**. |
 | Folder and archive previews | Expand a directory tree or browse images and videos in the right pane. Open ZIP, 7z, RAR, TAR, and other supported archives without unpacking them into your folders. |
-| File operations | Copy, cut, paste, drag to move across folder panes, Option-drag to copy, create folders, rename, and move to Trash. |
+| File operations | Copy, cut, paste, drag to move between panes or from Finder and the desktop, Option-drag to copy, create folders, rename, and move to Trash. |
 | Inline rename | Single-click a filename to edit it in place, with its stem selected and extension visible. Return commits; Escape cancels. Icon clicks select and double-clicks open. |
 | New documents | Right-click New to create a folder or blank Word, Excel, PowerPoint, PDF, text, or Markdown file and name it inline. |
 | Favorites | Save frequently used folders; right-click a custom favorite to remove it. |
@@ -120,7 +120,7 @@ GitHub Actions runs the test suite and builds both target architectures on macOS
 
 ## Current limitations and roadmap
 
-Not implemented: cloud providers, tabs, batch rename, recursive disk search, drops from external apps, or app-level undo. Remote transfers support cancellation and regular files only; local file transfers still do not have cancellation. Remote upload preflight checks are not atomic against concurrent server writers. Outbound dragging supports copying.
+Not implemented: cloud providers, tabs, batch rename, recursive disk search, drops from apps that supply only a file promise, or app-level undo. Remote transfers support cancellation and regular files only; local file transfers still do not have cancellation. Remote upload preflight checks are not atomic against concurrent server writers. Outbound dragging supports copying.
 
 See [ROADMAP.md](ROADMAP.md) for proposed work. Roadmap entries are ideas, not delivery commitments.
 
