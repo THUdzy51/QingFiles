@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add an opt-in Accessibility setting to open ordinary folders in QingFiles when double-clicked in Finder or on its desktop.
+
 - Add Open With to the local file context menu, with compatible apps and an option to select another application.
 - Remove New Folder and Quick Look buttons from the toolbar.
 - Show the lower preview area only while a file is selected. Keep it stable when switching files and fit still images proportionally within it.

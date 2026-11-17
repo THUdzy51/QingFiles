@@ -42,6 +42,12 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private var userFavorites: [String] = []
     private var remoteWorkspace: RemoteWorkspace?
     private var settingsWindow: SettingsWindow?
+    private lazy var finderFolderOpening = FinderFolderOpening(canOpen: { [weak self] in
+        guard let self, let window = self.window else { return false }
+        return !self.operationBusy && window.attachedSheet == nil
+    }, openFolder: { [weak self] folder in
+        self?.revealExternalFiles([folder])
+    })
     private var pendingOpenURLs: [URL] = []
     private var isPreview: Bool { argument("--preview") != nil }
     private var fourPanes = false
@@ -69,6 +75,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
             revealExternalFiles(urls)
         }
         if isPreview { schedulePreview() }
+        else { finderFolderOpening.start() }
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -110,6 +117,10 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
 
     func applicationDidBecomeActive(_ notification: Notification) {
         if !operationBusy { refreshAll() }
+        if !isPreview {
+            finderFolderOpening.refresh()
+            settingsWindow?.updateFinderFolderStatus()
+        }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -749,7 +760,7 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     }
 
     @objc private func settingsAction(_ sender: Any?) {
-        if settingsWindow == nil { settingsWindow = SettingsWindow() }
+        if settingsWindow == nil { settingsWindow = SettingsWindow(finderFolderOpening: finderFolderOpening) }
         settingsWindow?.showWindow(sender)
     }
 
