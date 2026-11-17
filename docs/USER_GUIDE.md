@@ -68,6 +68,10 @@ Open **QingFiles → Settings…** or press **Command-comma**, then enable **Use
 
 This setting starts off when WeChat has no QingFiles viewer preference. It persists across normal launches and changes WeChat's own viewer preference. Turning it off restores the value saved before enabling it, or removes the override if none existed. Fully quit and reopen WeChat after turning it off too. If another tool changes the preference while the feature is enabled, QingFiles preserves that newer value when disabling it. The Settings window reports access or write failures so you can retry.
 
+### Double-click folders in Finder or on the desktop
+
+In **QingFiles → Settings…**, enable **Open folders from Finder and the desktop in QingFiles**. Allow QingFiles under **System Settings → Privacy & Security → Accessibility**, then return to QingFiles. While QingFiles is running, a plain double-click on an ordinary folder icon or name opens that folder in the active QingFiles pane. Turn the option off to return to Finder's usual behavior. The option starts off and applies to Finder's mouse events.
+
 ## Create a blank document
 
 Right-click in a local pane and choose **New**, then Folder, Word Document (`.docx`), Excel Workbook (`.xlsx`), PowerPoint Presentation (`.pptx`), PDF Document (`.pdf`), Text Document (`.txt`), or Markdown Document (`.md`). The item is created in that pane's displayed folder, including when you right-click an existing item. Existing names receive a numbered suffix such as `New Word Document (2).docx`.
