@@ -22,7 +22,9 @@ Click **Two Folders** to browse both folders independently. Click **Preview Pane
 
 Right-click a file in a local file list and choose **Open With**. The menu lists compatible applications, with the current default marked. When several files are selected, the list contains apps that support all of them. Choose **Other…** to pick an app from disk. This opens the selected files once using the chosen application and keeps the existing default.
 
-## Drag files between panes
+## Drag files into and between panes
+
+Drag local files or folders from Finder or the desktop onto a QingFiles file list to move them into its current directory. Drop directly on a folder row to move them into that folder. Hold Option to copy and keep the originals, including when dragging from an app that only allows copying. In the two-pane preview layout, drop on the left file list.
 
 With both folder panes visible, drag one or more selected items onto the destination pane’s file list to move them to that pane’s folder. Drop directly onto a folder row to move into that folder. Hold Option while dropping to copy. QingFiles reports a conflict if the destination already contains an item of the same name.
 

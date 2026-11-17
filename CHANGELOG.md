@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Move local files and folders dragged from the desktop, Finder, or another application into a QingFiles file pane. Hold Option to copy.
+
 - Add an opt-in Accessibility setting to open ordinary folders in QingFiles when double-clicked in Finder or on its desktop.
 
 - Add Open With to the local file context menu, with compatible apps and an option to select another application.

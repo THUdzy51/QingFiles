@@ -14,9 +14,9 @@ private final class FileDrag: NSObject, NSDraggingInfo {
     var numberOfValidItemsForDrop = 0
     let springLoadingHighlight: NSSpringLoadingHighlight = .none
 
-    init(_ files: [URL], source: NSTableView, mask: NSDragOperation) {
+    init(_ files: [URL], source: NSTableView? = nil, mask: NSDragOperation) {
         draggingSource = source
-        draggingDestinationWindow = source.window
+        draggingDestinationWindow = source?.window
         draggingSourceOperationMask = mask
         super.init()
         precondition(draggingPasteboard.writeObjects(files.map { $0 as NSURL }))
@@ -80,11 +80,43 @@ struct PaneDropTests {
         let copied = try Data(contentsOf: child.appendingPathComponent(copy.lastPathComponent))
         precondition(copied == original)
 
+        let imported = from.appendingPathComponent("Desktop file.txt")
+        try original.write(to: imported)
+        let external = FileDrag([imported], mask: [.copy, .move])
+        precondition(right.tableView(destination, validateDrop: external, proposedRow: 1, proposedDropOperation: .above) == .move)
+        precondition(right.tableView(destination, acceptDrop: external, row: -1, dropOperation: .on))
+        precondition(report.succeeded.count == 1 && !fm.fileExists(atPath: imported.path))
+        let importedAtRoot = try Data(contentsOf: to.appendingPathComponent(imported.lastPathComponent))
+        precondition(importedAtRoot == original)
+
+        let externalCopy = FileDrag([imported], mask: [.copy])
+        try original.write(to: imported)
+        precondition(right.tableView(destination, validateDrop: externalCopy, proposedRow: 0, proposedDropOperation: .on).isEmpty,
+                     "The external drop silently fell back to copying")
+        precondition(!right.tableView(destination, acceptDrop: externalCopy, row: 0, dropOperation: .on))
+        let movedIntoFolder = from.appendingPathComponent("Another file.txt")
+        try original.write(to: movedIntoFolder)
+        let externalMoveOnly = FileDrag([movedIntoFolder], mask: [.move])
+        precondition(right.tableView(destination, validateDrop: externalMoveOnly, proposedRow: 0, proposedDropOperation: .on) == .move)
+        precondition(right.tableView(destination, acceptDrop: externalMoveOnly, row: 0, dropOperation: .on))
+        precondition(report.succeeded.count == 1 && !fm.fileExists(atPath: movedIntoFolder.path))
+        let importedInFolder = try Data(contentsOf: child.appendingPathComponent(movedIntoFolder.lastPathComponent))
+        precondition(importedInFolder == original)
+
+        try Data("Different contents".utf8).write(to: imported)
+        precondition(right.tableView(destination, acceptDrop: external, row: -1, dropOperation: .on))
+        precondition(report.succeeded.isEmpty && report.failures.count == 1)
+        let afterConflict = try Data(contentsOf: to.appendingPathComponent(imported.lastPathComponent))
+        precondition(fm.fileExists(atPath: imported.path) && afterConflict == original)
+
+        let webLink = FileDrag([URL(string: "https://example.com/file.txt")!], mask: [.copy])
+        precondition(!right.tableView(destination, acceptDrop: webLink, row: -1, dropOperation: .on))
+
         let selfDrop = FileDrag([child], source: destination, mask: [.move])
         precondition(right.tableView(destination, validateDrop: selfDrop, proposedRow: 0, proposedDropOperation: .on).isEmpty)
         right.allowsFileDrop = { false }
         precondition(!right.tableView(destination, acceptDrop: copying, row: 0, dropOperation: .on))
-        print("SUCCESS: cross-pane moves, folder-row copies, self-drop rejection, and operation gating.")
+        print("SUCCESS: cross-pane transfers, external moves, folder destinations, and collision preservation.")
     }
 
     private static func table(in view: NSView) -> NSTableView? {
