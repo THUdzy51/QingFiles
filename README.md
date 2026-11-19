@@ -28,6 +28,7 @@ Download the ZIP for your Mac from [Releases](https://github.com/THUdzy51/QingFi
 | Paths | Click a breadcrumb to navigate, or click the path bar’s empty space or press `⌘L` to select and edit the absolute path. Click a segment’s arrow to choose a subfolder, or use the `…` menu to reach omitted ancestors. |
 | External files and folders | Use Open With QingFiles for documents, or Services → Reveal in QingFiles for files and folders. Files are selected in their original folder; a single folder opens directly in the active pane. |
 | WeChat file reveal | Enable the optional switch in QingFiles → Settings, then restart WeChat to send its Show in Finder action directly to QingFiles. Switch it off and restart WeChat to restore the previous viewer. |
+| Closed-lid operation | A Settings switch controls macOS system sleep with administrator approval. The override applies on battery and AC power until switched off. |
 | Filesystem access | Sidebar shortcuts include Home, Root `/`, Volumes, Applications, and User Library. |
 | Hidden items | Toggle dotfiles and hidden-flag items with `⌘⇧.`. |
 | Search and sorting | Click the search button or press `⌘F` to filter names in the current folder; sort by name, modified date, or size. Folders stay first. |

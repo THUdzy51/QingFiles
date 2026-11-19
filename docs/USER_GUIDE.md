@@ -74,6 +74,14 @@ This setting starts off when WeChat has no QingFiles viewer preference. It persi
 
 In **QingFiles → Settings…**, enable **Open folders from Finder and the desktop in QingFiles**. Allow QingFiles under **System Settings → Privacy & Security → Accessibility**, then return to QingFiles. While QingFiles is running, a plain double-click on an ordinary folder icon or name opens that folder in the active QingFiles pane. Turn the option off to return to Finder's usual behavior. The option starts off and applies to Finder's mouse events.
 
+### Keep the Mac awake with its lid closed
+
+Open **QingFiles → Settings…** and turn on **Keep Mac awake with lid closed**. Approve the macOS administrator dialog to apply the change. The switch reads the current system setting each time Settings opens or QingFiles becomes active.
+
+This controls `pmset -a disablesleep`, a system-wide override covering battery and AC power. It stays in effect after QingFiles quits until switched off. Switch it off and approve the change to restore normal system sleep. Cancelling approval preserves the current setting. QingFiles handles no administrator passwords.
+
+The setting affects system sleep as well as lid-close sleep. Physical lid-close behavior depends on the Mac and macOS version. If the override cannot be read or verified, Settings reports the error. The equivalent Terminal commands are `sudo pmset -a disablesleep 1` to enable and `sudo pmset -a disablesleep 0` to disable. This option is implemented in [Apple's pmset source](https://github.com/apple-oss-distributions/PowerManagement/blob/main/pmset/pmset.m).
+
 ## Create a blank document
 
 Right-click in a local pane and choose **New**, then Folder, Word Document (`.docx`), Excel Workbook (`.xlsx`), PowerPoint Presentation (`.pptx`), PDF Document (`.pdf`), Text Document (`.txt`), or Markdown Document (`.md`). The item is created in that pane's displayed folder, including when you right-click an existing item. Existing names receive a numbered suffix such as `New Word Document (2).docx`.

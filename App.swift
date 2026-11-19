@@ -124,10 +124,15 @@ final class QingAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         if !isPreview {
             finderFolderOpening.refresh()
             settingsWindow?.updateFinderFolderStatus()
+            settingsWindow?.refreshSleepSetting()
         }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if settingsWindow?.isChangingSleepSetting == true {
+            showMessage("Power setting in progress", "Finish or cancel administrator approval before quitting QingFiles.")
+            return .terminateCancel
+        }
         if operationBusy || remoteWorkspace?.isBusy == true {
             showMessage("File operation in progress", "Wait for the current operation to finish before quitting.")
             return .terminateCancel

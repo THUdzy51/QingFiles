@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a Settings switch to keep the Mac awake with its lid closed using the system-wide sleep override. Read back the actual macOS setting, request administrator approval for changes, and retain the current state when approval is cancelled.
+
 - Open remote connections in a compact dialog. After connecting, browse the local and server folders side by side in the main window and drag files between them to upload or download. Disconnecting restores the prior layout.
 
 - Move local files and folders dragged from the desktop, Finder, or another application into a QingFiles file pane. Hold Option to copy.

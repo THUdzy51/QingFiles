@@ -7,16 +7,27 @@ final class SettingsWindow: NSWindowController {
     private let finderStatus = NSTextField(wrappingLabelWithString: "")
     private let toggle = NSButton(checkboxWithTitle: "Use QingFiles for Show in Finder in WeChat", target: nil, action: nil)
     private let message = NSTextField(wrappingLabelWithString: "")
+    private let lidSleep: LidSleepSetting
+    private let sleepSwitch = NSSwitch()
+    private let sleepMessage = NSTextField(wrappingLabelWithString: "")
+    private var sleepState: Bool?
+    private var readingSleepSetting = false
+    private(set) var isChangingSleepSetting = false
     private let queue = DispatchQueue(label: "local.qingfiles.settings", qos: .userInitiated)
 
-    init(finderFolderOpening: FinderFolderOpening, setting: WeChatRevealSetting = WeChatRevealSetting()) {
+    init(finderFolderOpening: FinderFolderOpening, setting: WeChatRevealSetting = WeChatRevealSetting(),
+         lidSleep: LidSleepSetting = LidSleepSetting()) {
         self.setting = setting
         self.finderFolderOpening = finderFolderOpening
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 540, height: 350),
+        self.lidSleep = lidSleep
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 540, height: 480),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Settings — QingFiles"
         window.isReleasedWhenClosed = false
+        window.backgroundColor = QingTheme.background
         super.init(window: window)
+        window.contentView!.wantsLayer = true
+        window.contentView!.layer?.backgroundColor = QingTheme.background.cgColor
         let folderTitle = QingTheme.label("Folder opening", size: 20, weight: .semibold)
         finderToggle.target = self
         finderToggle.action = #selector(finderToggleChanged)
@@ -30,7 +41,21 @@ final class SettingsWindow: NSWindowController {
         toggle.action = #selector(toggleChanged)
         message.font = .systemFont(ofSize: 12)
         message.textColor = .secondaryLabelColor
-        let stack = NSStackView(views: [folderTitle, finderToggle, finderStatus, title, toggle, description, message])
+        let sleepTitle = QingTheme.label("Sleep", size: 20, weight: .semibold)
+        let sleepLabel = QingTheme.label("Keep Mac awake with lid closed")
+        sleepSwitch.target = self
+        sleepSwitch.action = #selector(sleepSwitchChanged)
+        sleepSwitch.setAccessibilityLabel("Keep Mac awake with lid closed")
+        sleepSwitch.isEnabled = false
+        let sleepRow = NSStackView(views: [sleepLabel, NSView(), sleepSwitch])
+        sleepRow.alignment = .centerY
+        let sleepDescription = NSTextField(wrappingLabelWithString: "Disables system sleep on battery and power adapter until switched off, including after QingFiles quits. Changes require administrator approval.")
+        sleepDescription.font = .systemFont(ofSize: 12)
+        sleepDescription.textColor = .secondaryLabelColor
+        sleepMessage.font = .systemFont(ofSize: 12)
+        sleepMessage.textColor = .secondaryLabelColor
+        let stack = NSStackView(views: [folderTitle, finderToggle, finderStatus, title, toggle, description, message,
+                                       sleepTitle, sleepRow, sleepDescription, sleepMessage])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 16
@@ -42,7 +67,11 @@ final class SettingsWindow: NSWindowController {
             stack.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -24),
             finderStatus.widthAnchor.constraint(equalTo: stack.widthAnchor),
             description.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            message.widthAnchor.constraint(equalTo: stack.widthAnchor)
+            message.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            sleepRow.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            sleepDescription.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            sleepMessage.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: window.contentView!.bottomAnchor, constant: -24)
         ])
         window.center()
     }
@@ -55,6 +84,7 @@ final class SettingsWindow: NSWindowController {
         updateSetting(to: nil)
         finderFolderOpening.refresh()
         updateFinderFolderStatus()
+        refreshSleepSetting()
     }
 
     func updateFinderFolderStatus() {
@@ -76,6 +106,59 @@ final class SettingsWindow: NSWindowController {
     }
 
     @objc private func toggleChanged() { updateSetting(to: toggle.state == .on) }
+
+    func refreshSleepSetting() {
+        guard window?.isVisible == true, !readingSleepSetting, !isChangingSleepSetting else { return }
+        updateSleepSetting(to: nil)
+    }
+
+    @objc private func sleepSwitchChanged() {
+        guard !readingSleepSetting, !isChangingSleepSetting else { return }
+        let requested = sleepSwitch.state == .on
+        sleepSwitch.state = sleepState == true ? .on : .off
+        updateSleepSetting(to: requested)
+    }
+
+    private func updateSleepSetting(to enabled: Bool?) {
+        readingSleepSetting = true
+        isChangingSleepSetting = enabled != nil
+        sleepSwitch.isEnabled = false
+        sleepMessage.textColor = .secondaryLabelColor
+        sleepMessage.stringValue = enabled == nil ? "Reading system sleep setting…" : "Waiting for administrator approval…"
+        queue.async { [self] in
+            var error: Error?
+            do {
+                if let enabled { try lidSleep.setEnabled(enabled) }
+            } catch let failure {
+                error = failure
+            }
+            let result = Result { try lidSleep.isEnabled() }
+            DispatchQueue.main.async { [self, error] in
+                readingSleepSetting = false
+                isChangingSleepSetting = false
+                switch result {
+                case .success(let active):
+                    sleepState = active
+                    sleepSwitch.state = active ? .on : .off
+                    sleepSwitch.isEnabled = true
+                    sleepMessage.stringValue = active ? "On · System sleep is disabled." : "Off · System sleep follows macOS settings."
+                    if let error {
+                        sleepMessage.stringValue = error.localizedDescription
+                        if case LidSleepSetting.Failure.cancelled = error {
+                            sleepMessage.textColor = .secondaryLabelColor
+                        } else {
+                            sleepMessage.textColor = .systemRed
+                        }
+                    }
+                case .failure(let failure):
+                    sleepState = nil
+                    sleepSwitch.state = .off
+                    sleepMessage.stringValue = failure.localizedDescription
+                    sleepMessage.textColor = .systemRed
+                }
+            }
+        }
+    }
 
     private func updateSetting(to enabled: Bool?) {
         toggle.isEnabled = false
